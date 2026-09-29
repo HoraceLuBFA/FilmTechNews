@@ -13,6 +13,8 @@ python3 scripts/local.py stop
 
 启动脚本负责项目自己的数据库、种子和 API/worker/web。关闭保留数据，不影响其他数据库服务。日志在 `.data/runtime`。后台位于 `/admin`，密码取本地 `.env` 的 `ADMIN_PASSWORD`。
 
+生产采集与生成现由腾讯云独立运行，见 [腾讯云运行](filmtech-cloud.md)。本机旧生产 LaunchAgent 已退出并禁用；此处的本地预览使用独立数据库，不连接生产队列。
+
 ## ChatGPT OAuth 试验接入
 
 使用官方 Codex CLI 管理的 ChatGPT 登录，运行 `codex login status` 确认登录。项目不读取或复制 OAuth 令牌，不将 ChatGPT 令牌当作 OpenAI API key。生产长期定时任务宜另行评估官方建议的 API key 接入，OAuth 当前作为用户本人控制的私有试验。参考 [官方认证说明](https://learn.chatgpt.com/docs/auth)、[非交互调用](https://learn.chatgpt.com/docs/non-interactive-mode)。

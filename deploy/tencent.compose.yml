@@ -8,7 +8,19 @@ services:
     environment:
       LLM_BASE_URL: http://172.17.0.1:3320/v1
   worker:
+    # The host's existing egress proxy only listens on loopback. This worker has
+    # no HTTP listener; host networking avoids exposing or reconfiguring the proxy.
+    network_mode: host
     environment:
+      DATABASE_URL: postgres://aihot:${POSTGRES_PASSWORD:-aihot}@127.0.0.1:55441/aihot
+      API_BASE_URL: http://127.0.0.1:3310
+      LOCAL_ROUTER_URL: http://127.0.0.1:3310
+      EGRESS_PROXY_URL: http://127.0.0.1:7890
       LLM_BASE_URL: http://172.17.0.1:3320/v1
+      LLM_MODEL: gpt-5.6-sol
+      LLM_EXTRA_JSON: '{"reasoning_effort":"high"}'
+      MODEL_CALLS_ENABLED: "true"
+      COLLECT_ENABLED: "true"
+      ANALYZE_CONCURRENCY: "1"
     cpus: 0.75
     mem_limit: 768m

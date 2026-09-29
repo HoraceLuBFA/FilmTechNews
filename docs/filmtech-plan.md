@@ -4,11 +4,11 @@
 
 将 AIHOT 改为影视技术日报，先本地运行，再部署到用户腾讯云。用户已确认站名“影视技术日报 / FilmTechNews”和十个栏目：摄影现场、视效动画、虚拟制作、剪辑色彩、声音、媒体工程、影院与沉浸、AI 影视、标准研究、产业动态。模型先尝试 ChatGPT OAuth；腾讯云 SSH 别名 tencent-cloud，域名前缀 filmtech。用户已确认上线文本并授权公开访问。
 
-腾讯云模型调用实测返回地区不支持后，用户明确选择“先由本机生成，腾讯云展示”。当前不修改云端代理。后续如调整模型运行位置，应先验证实际调用，再迁移生成进程，防止两端同时消费队列。
+早期因腾讯云模型调用返回地区不支持，曾按用户选择采用“本机生成、腾讯云展示”。2026-09-29 用户已修复主机 Codex 代理，并要求全部迁回服务器。当前已完成真实验证和单端切换，沿用主机既有代理配置。
 
 ## 默认模型（2026-09-29 用户指定）
 
-影视日报生成任务默认使用 `gpt-5.6-sol`，推理强度 `high`。已替换初始试运行的 gpt-6-astra / low，适用于后续新任务；既有文章及调用回执保留原记录。适配器参数测试通过，并使用新配置完成一次实际结构化摘要调用，本地回执 32 返回成功；本地预览和云端生成的本机进程均已切换。
+影视日报生成任务默认使用 `gpt-5.6-sol`，推理强度 `high`。已替换初始试运行的 gpt-6-astra / low，适用于后续新任务；既有文章及调用回执保留原记录。适配器参数测试通过，并使用新配置完成一次实际结构化摘要调用，本地回执 32 返回成功；本地预览与现有云端 worker 均使用这一配置。
 
 ## 当前状态（2026-09-29）
 
@@ -21,9 +21,9 @@
 
 ## 运行结构与恢复入口
 
-腾讯云 `/opt/filmtechnews` 用 Docker 运行 db/api/web，Nginx 对外 HTTPS。Web 与 DB 仅绑定服务器本机 3310/55441。实际 Nginx 程序为 `/usr/local/nginx/sbin/nginx`，配置根在 `/usr/local/nginx/conf`；系统 PATH 中另有未被 systemd 使用的 Nginx，不能混用验收。
+腾讯云 `/opt/filmtechnews` 用 Docker 运行 db/api/web/worker，Nginx 对外 HTTPS。Web 与 DB 仅绑定服务器本机 3310/55441。实际 Nginx 程序为 `/usr/local/nginx/sbin/nginx`，配置根在 `/usr/local/nginx/conf`；系统 PATH 中另有未被 systemd 使用的 Nginx，不能混用验收。
 
-生成进程在本机 LaunchAgent `com.horace.filmtechnews.worker`：SSH 隧道连接云端 DB，本机私有 Codex bridge 3322 调用既有 ChatGPT 登录，worker 负责采集、筛选、归组与日报。分析并发 1，llm 回执预算 10 次/分钟、100 次/小时、300 次/天；推送保持关闭。需要本机开机、登录且联网，睡眠或断网时云端仍展示已有内容。管理命令、文件与恢复步骤见 [腾讯云运行](filmtech-cloud.md)。
+生成进程现位于腾讯云 Docker worker，经宿主机私有 Codex bridge 调用服务器自己的登录与既有代理。采集、预筛、评分、详细摘要、结构抽取、归组、综述、日报、周报、月报和补任务均由云端执行。本机原生产 LaunchAgent `com.horace.filmtechnews.worker` 已退出并禁用，预览库独立保留。分析并发 1，llm 预算 10 次/分钟、100 次/小时、300 次/天，推送关闭。管理命令、文件、时间表与单端回退步骤见 [腾讯云运行](filmtech-cloud.md)。
 
 本地预览通过 `python3 scripts/local.py start|stop|status` 管理，DB 在 `.data/postgres-local`，55440，API 3311，web 3310，模型 bridge 3320。预览默认采集和模型阀门关闭，避免与云端生成重复消费配额。见 [本地运行](filmtech-local.md)。
 
@@ -37,7 +37,7 @@
 
 浏览器自动化接口多次超时，尚未完成真实浏览器逐页视觉验收。HTTP/SSR 和接口验收不等同于交互与版式验收，这一项明确保留。
 
-云端 PostgreSQL Alpine 镜像在旧内核上初始化报写入 EPERM，改用同主版本 Debian bookworm 镜像后启动成功；没有关闭安全机制或修改其他项目。云端 Codex OAuth 返回 403 / unsupported_country_region_territory，云端模型服务已停止，当前架构按用户选择采用本机生成。
+云端 PostgreSQL Alpine 镜像在旧内核上初始化报写入 EPERM，改用同主版本 Debian bookworm 镜像后启动成功；没有关闭安全机制或修改其他项目。早期云端 Codex OAuth 的地区错误已由用户修复；本次迁移又修正了旧版 systemd 的只读状态目录问题，现已通过真实调用。
 
 首次回填为历史资料，保留原始时间，不纳入今天新稿日报。定时生成日报窗口为北京时间前一天 08:00 到当天 08:00；启动时补出的空报表只是没有合格新稿，不是模型生成了完整新闻日报。需要实际新稿积累后再评估一期完整日报质量。
 
@@ -62,3 +62,17 @@
 对照来源抽查后，通过带审计的编辑覆盖修正 Backrooms 的 up-res 与 found footage 术语，区分 Molus X100 的作者约数与表格实测值，为播客介绍及杂志介绍注明材料范围。这 4 篇覆盖由 `codex:summary-review` 写入，不代表用户逐条审定；旧模型结果仍保留。随后将术语与节目介绍边界补入共享提示词，供后续文章使用。本次批量使用的提示词版本保存在 `.data/verification/summary-batch-version.json`，与这次补充后的未来生成版本有区别，不能用新版本号误判本批回执。
 
 最终证据：`.data/verification/summary-cloud-accepted.json`、`summary-cloud-ssr.json`、`summary-cloud-copy-audit.json` 和 `summary-cloud-final-smoke.log`。这些是本次验收快照，后续新稿会继续增加。用户原始来源笔记未修改、未提交；运行数据、回执和正文均不入 Git。
+
+## 2026-09-29 生产生成迁移到腾讯云
+
+按用户要求将全部生产 worker 迁移到腾讯云，保持 `gpt-5.6-sol` / `high`、原摘要质量规则与每分钟 10、每小时 100、每天 300 次预算。先用回执 183 验证服务器自己的 Codex，再排空本机 worker 并禁用其 LaunchAgent，最后于北京时间 23:45 启动云端 worker；切换时未同时运行两个生产消费者。云端已完成文章预筛、结构抽取、两次评分和摘要全链路，回执 184–188 均 completed，分析记录 42 保存 410 字中文摘要。
+
+修复的部署差异包括 systemd 219 不识别原来的写入目录例外，以及两个来源在云端直连出口下无法得到 RSS。服务单元已更新到 `deploy/filmtech-codex.service`，使用兼容设置并依赖既有代理服务；worker 通过 host 网络复用只监听回环地址的主机代理，数据库与站内 URL 均显式改为宿主本地端口。代理全局配置和 Codex 登录凭据均未复制或修改。
+
+本次类型检查通过；首次后端测试因验证命令强制关闭模型阀门，连本地测试桩也被拒绝而失败。随后按测试自身的隔离库与本地桩机制，在另一空库重新迁移运行，143 项后端和桥接测试、16 项前端测试及生产构建全部通过。公网 smoke 全部通过。首次失败记录和最终成功记录分别保存在 `.data/verification/cloud-migration-checks.log`、`cloud-migration-checks-retry.log`；运行证据见 `cloud-migration-status.json`、`cloud-migration-probe.log` 和 `cloud-migration-public-smoke.log`。
+
+恢复入口为 [腾讯云运行](filmtech-cloud.md)，其管理及回退命令必须遵守单端消费顺序。systemd 和 Docker 重启策略已启用并核实，未为验收重启整台多业务服务器；下一期定时日报的内容质量仍需在实际到点产出后评估。
+
+最终采集复测：13 个启用来源全部 `ok`，包括原先直连失败的 ASWF 和 postPerspective，最新 `last_error` 均为空。切换后分析记录 42–44 已进入公开层，分别为 410、661、837 字摘要；其中 After Effects AI Assistant 文章详情 API 和 SSR 均为 HTTP 200，公开摘要长度与数据库一致。云端 worker 最终使用 host 网络，桥接健康返回 `gpt-5.6-sol`、`high`；systemd 服务已 active/enabled，容器 restart=unless-stopped，restart count=0，本机生产 LaunchAgent 保持 disabled。
+
+本地与公网 smoke 各 30 项通过。验收时近一小时调用数达到原有 100 次上限，采集继续运行，剩余模型处理按既有预算退避机制续跑；本次未提高额度。证据快照另见 `cloud-migration-final-sources.json` 和 `cloud-migration-public-article.json`，均留在私有验证目录，不提交正文或运行数据库。

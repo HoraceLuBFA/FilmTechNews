@@ -2,7 +2,7 @@
 
 面向影视制作、影像技术及媒体工程的资讯聚合站，基于 [AIHOT](https://github.com/KKKKhazix/AIHOT) 改造。公开信源经过采集、相关性筛选、评分、中文摘要和归组，通过网站、RSS、API 与 MCP 提供阅读索引。原项目说明保存在 [README.upstream.md](README.upstream.md)。
 
-线上地址：<https://filmtech.lumenghe.com>。当前采用本机生成、腾讯云展示的运行方式。本机需要开机、登录并联网，云端继续提供已有内容；本阶段尚非完全云端无人值守。
+线上地址：<https://filmtech.lumenghe.com>。当前由腾讯云独立采集、生成和展示，调用服务器自己的 Codex，使用 `gpt-5.6-sol`、`high`。Mac 仅保留独立本地预览，生产更新不依赖本机开机。
 
 ## 内容范围
 
@@ -22,7 +22,7 @@ python3 scripts/local.py start
 # http://127.0.0.1:3310
 ```
 
-模型支持原有 OpenAI-compatible API，也提供实验性的私有 Codex CLI 桥接。ChatGPT OAuth 由官方 Codex CLI 管理，不读取或复制令牌。当前本机已完成真实验证；腾讯云直接调用收到地区不支持错误，已关闭其模型服务。调用仍经过预算、回执和业务结果验证，访客请求不触发模型调用。
+模型支持原有 OpenAI-compatible API，也提供实验性的私有 Codex CLI 桥接。ChatGPT OAuth 由官方 Codex CLI 管理，不读取或复制令牌。腾讯云现已通过既有代理入口完成真实调用验证，后台 worker 全部迁移到服务器；本机原生产生成进程已禁用。调用仍经过预算、回执和业务结果验证，访客请求不触发模型调用。
 
 ## 项目文档
 
