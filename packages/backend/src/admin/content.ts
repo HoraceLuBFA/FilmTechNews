@@ -117,7 +117,7 @@ export async function setSeoIndexed(id: string, input: { indexed: boolean; reaso
 const FieldsSchema = z
   .object({
     title: z.string().min(1).max(300),
-    summary: z.string().max(2000),
+    summary: z.string().max(4000),
     reason: z.string().max(1000),
     category: z.enum(CATEGORY_KEYS as unknown as [string, ...string[]]),
     tags: z.array(z.string().max(60)).max(20),
