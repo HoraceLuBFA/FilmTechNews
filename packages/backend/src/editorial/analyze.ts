@@ -297,7 +297,7 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
 }
 
 /** The title/summary prompts (articles, long and short posts). */
-async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
+export async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
   const t = translateInputOf(a);
   const isX = t.sourceKind === "x_search";
   const short = isShortTweetInput(t);
@@ -319,7 +319,8 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     json: false,
     parse: parseTranslateOutput,
     temperature: 0.2,
-    maxTokens: 2048,
+    maxTokens: isX ? 2048 : 8192,
+    timeoutMs: 180_000,
     attemptTag: tagged(opts.attemptTag, "summarize"),
   });
   const p = res.data;

@@ -31,7 +31,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const { item } = loaderData;
   return pageMeta({
     title: item.title,
-    description: item.summary ?? undefined,
+    description: item.summary?.replace(/\s+/g, " ").slice(0, 180) ?? undefined,
     path: `/items/${item.id}`,
     image: `/og/items/${item.id}.png`,
     type: "article",
@@ -305,8 +305,10 @@ export default function ItemPage() {
 
           {item.summary && (
             <section className={isX ? "mt-4" : "mt-7 xl:mt-8"}>
-              <div className="mb-2 text-[12px] font-semibold text-accent">{summaryOnly ? "摘要" : "AI 导读"}</div>
-              <p className="text-[18px] leading-[1.7] text-ink xl:text-[20px] xl:leading-[1.7]">{item.summary}</p>
+              <div className="mb-2 text-[12px] font-semibold text-accent">{isX ? "摘要" : "中文详细摘要"}</div>
+              <div className="space-y-5 text-[18px] leading-[1.8] text-ink xl:text-[20px]">
+                {item.summary.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+              </div>
             </section>
           )}
 
@@ -323,7 +325,7 @@ export default function ItemPage() {
             </div>
           )}
 
-          {summaryOnly && <p className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[13.5px] leading-relaxed text-ink-3">应来源方要求，这里只提供摘要与原文入口。完整内容请阅读原文。</p>}
+          {summaryOnly && <p className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[13.5px] leading-relaxed text-ink-3">中文摘要由模型依据已获取的原文生成。核对图表、完整示例或原始表述时，可查看原文。</p>}
 
           {item.body && bodyHtml && (
             <section className="mt-9 border-t border-line pt-4 xl:mt-10">

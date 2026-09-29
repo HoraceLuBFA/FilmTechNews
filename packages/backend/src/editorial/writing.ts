@@ -77,6 +77,7 @@ const unfetchedXArticle = (a: AnalyzeInputArticle) => !!a.xPost && a.bodyStatus 
 
 function materialQuality(a: AnalyzeInputArticle): string {
   if (a.xPost) return "完整正文（来自 RSS / API 自带的 content 字段）";
+  if (a.bodyText && a.bodyStatus !== "ok") return "正文完整性未确认，只概括已获取部分";
   if (a.bodyText) return a.source.fetchesBody ? "完整正文（抓自原始网页）" : "完整正文（来自 RSS / API 自带的 content 字段）";
   if (a.excerpt) return "仅摘要（feed 未提供完整正文）";
   if (a.bodyStatus === "unconfirmed") return "抓取失败，仅标题可用";
@@ -113,7 +114,7 @@ export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: b
   lines.push(opts.annotateQuoted && quoted ? "【正文（作者自己的内容）】" : "【正文】");
   lines.push(capBody(a.xPost ? String(a.xPost.text ?? a.title) : (a.bodyText ?? a.excerpt ?? "(无正文)")));
   lines.push("");
-  lines.push(`【材料质量】${materialQuality(a)}`);
+  lines.push(`【材料质量】${materialQuality(a)}${(a.bodyText ?? a.excerpt ?? "").length > MAX_BODY_CHARS ? "；正文超出输入上限，末尾已截断" : ""}`);
   return lines.join("\n");
 }
 
@@ -166,6 +167,7 @@ export interface TranslateInput {
   quotedText?: string;
   quotedAuthor?: string;
   publishedAt?: Date;
+  bodyStatus?: string;
 }
 
 export function translateInputOf(a: AnalyzeInputArticle): TranslateInput {
@@ -182,6 +184,7 @@ export function translateInputOf(a: AnalyzeInputArticle): TranslateInput {
     quotedText: a.xPost?.quoted?.text ? String(a.xPost.quoted.text) : undefined,
     quotedAuthor: a.xPost?.quoted?.handle ? String(a.xPost.quoted.handle) : undefined,
     publishedAt: a.publishedAt ?? undefined,
+    bodyStatus: a.bodyStatus,
   };
 }
 
@@ -264,10 +267,10 @@ function answerFirstSummaryLengthOk(summary: string, input: TranslateInput): boo
 
 export const isShortTweetInput = (input: TranslateInput) => input.sourceKind === "x_search" && isShortTweet(input.mainText || input.title);
 
-/** The length rule (compacted without another call) and the identity guard, for any writing model. */
+/** Article detail copy keeps its paragraphs; only long social posts use the compact length rule. */
 export function finalizeCopy(input: TranslateInput, copy: { titleZh: string; summaryZh: string }) {
   let summaryZh = copy.summaryZh;
-  if (!isShortTweetInput(input) && summaryZh && !answerFirstSummaryLengthOk(summaryZh, input)) summaryZh = compactAnswerFirstSummary(summaryZh);
+  if (input.sourceKind === "x_search" && !isShortTweetInput(input) && summaryZh && !answerFirstSummaryLengthOk(summaryZh, input)) summaryZh = compactAnswerFirstSummary(summaryZh);
   return enforceIdentity(input, { titleZh: copy.titleZh, summaryZh });
 }
 
@@ -287,7 +290,8 @@ export function buildArticlePrompt(input: TranslateInput): string {
     sourceName: sourceName(input.sourceName),
     identity: identityPrompt(input),
     title: input.title,
-    body: input.text ? clampText(cleanArticleTextForLLM(input.text), 6000) : promptText("summarize-article-empty"),
+    materialQuality: [input.bodyStatus === "ok" ? "已获取正文" : "正文完整性未确认，可能仅有来源摘要", cleanArticleTextForLLM(input.text).length > MAX_BODY_CHARS ? "正文超出输入上限，末尾已截断" : ""].filter(Boolean).join("；"),
+    body: input.text ? clampText(cleanArticleTextForLLM(input.text), MAX_BODY_CHARS) : promptText("summarize-article-empty"),
   });
 }
 
@@ -336,8 +340,8 @@ export function parseTranslateOutput(text: string): { titleZh: string; summaryZh
     if (body) { bodyZh = body[1]!.trim(); bodyLine = i; continue; }
   }
   // A title without a labelled summary or body: the lines after it are the summary.
-  if (titleZh && !summaryZh && bodyLine < 0 && titleLine >= 0) {
-    const rest = lines.slice(titleLine + 1).map((l) => l.trim()).filter(Boolean);
+  if (titleZh && summaryLine < 0 && bodyLine < 0 && titleLine >= 0) {
+    const rest = lines.slice(titleLine + 1).map((l) => l.trim());
     if (rest.length) summaryZh = rest.join("\n");
   }
   // A summary split over lines: join the unlabelled lines after it.
@@ -345,11 +349,10 @@ export function parseTranslateOutput(text: string): { titleZh: string; summaryZh
     const more: string[] = [];
     for (let i = summaryLine + 1; i < lines.length; i += 1) {
       const t = lines[i]!.trim();
-      if (!t) continue;
       if (/^(title_zh|summary_zh|body_zh)\s*[:：]/.test(t)) break;
       more.push(t);
     }
-    const parts = [summaryZh, ...more].filter(Boolean);
+    const parts = summaryZh ? [summaryZh, ...more] : more;
     if (parts.length) summaryZh = parts.join("\n");
   }
   // A body over lines keeps its paragraph breaks.
@@ -364,7 +367,7 @@ export function parseTranslateOutput(text: string): { titleZh: string; summaryZh
     if (parts.length) bodyZh = parts.join("\n");
   }
   if (!titleZh && !summaryZh && !bodyZh) {
-    const rest = text.trim().split(/\r?\n/).filter(Boolean);
+    const rest = text.trim().split(/\r?\n/);
     if (rest.length >= 2) {
       titleZh = rest[0]!.trim();
       summaryZh = rest.slice(1).join("\n").trim();

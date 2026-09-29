@@ -10,9 +10,10 @@ import { after, before, test } from "node:test";
 import { closeDb, sql } from "@aihot/backend/db";
 import { upsertMaterial } from "@aihot/backend/content/materials";
 import { analyzeArticle, SCORE_SYSTEM, tierThreshold } from "@aihot/backend/editorial/analyze";
+import { rewriteSummary } from "@aihot/backend/editorial/rewrite-summary";
 import { queueProcessing } from "@aihot/backend/jobs/content";
 import { QUEUES, stopBoss } from "@aihot/backend/jobs/queue";
-import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@aihot/backend/editorial/writing";
+import { buildArticlePrompt, finalizeCopy, compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@aihot/backend/editorial/writing";
 import { promptText } from "@aihot/backend/editorial/prompts";
 import { SITE } from "@aihot/industry/site";
 
@@ -195,4 +196,38 @@ test("analysing the same revision again reuses every paid answer", async () => {
   const again = await analyzeArticle(id);
   assert.equal(provider.hits(), hits, "no new requests");
   assert.deepEqual([again!.reused, again!.receiptIds], [true, first!.receiptIds]);
+});
+
+
+test("article summaries retain detail, paragraph breaks and late source evidence", () => {
+  const summary = "摄影师在低照度场景比较了两种布光方法。" + "测试保持相同曝光并记录高光变化。".repeat(18) + "\n\n该结论只适用于测试中的室内场景。";
+  const input = { title: "布光方法测试", text: "A lighting test. ".repeat(600) + "FINAL LIMITATION", sourceKind: "rss", bodyStatus: "ok" };
+  assert.equal(finalizeCopy(input, { titleZh: input.title, summaryZh: summary }).summaryZh, summary);
+  assert.equal(parseTranslateOutput(`title_zh: 布光方法测试\nsummary_zh: ${summary}`).summaryZh, summary);
+  assert.equal(parseTranslateOutput(`title_zh: 布光方法测试\nsummary_zh:\n${summary}`).summaryZh, summary);
+  assert.ok(buildArticlePrompt(input).includes("FINAL LIMITATION"));
+  assert.match(buildArticlePrompt({ ...input, text: "a".repeat(61000) }), /末尾已截断/);
+  assert.match(buildArticlePrompt({ ...input, bodyStatus: "unconfirmed" }), /正文完整性未确认/);
+  const shortPost = { ...input, sourceKind: "x_search", mainText: "short post" };
+  assert.equal(finalizeCopy(shortPost, { titleZh: input.title, summaryZh: summary }).summaryZh, summary);
+});
+
+
+test("summary refresh preserves judgement, keeps evidence and respects manual edits", async () => {
+  const id = await article("SUMMARY_REFRESH");
+  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, title_zh, summary_zh, score, selected, category, tags, output)
+    VALUES (${id}, 1, 'rule', 'pass', '保留原标题', '旧摘要', 78, true, 'camera-lighting', ARRAY['摄影'], '{"scores":[77,79]}'::jsonb)`;
+  assert.equal((await rewriteSummary(id)).status, "updated");
+  const [latest] = await sql`SELECT * FROM analyses WHERE article_id = ${id} ORDER BY id DESC LIMIT 1`;
+  assert.equal(latest.title_zh, "保留原标题");
+  assert.equal(latest.score, 78);
+  assert.equal(latest.selected, true);
+  assert.deepEqual(latest.output.scores, [77, 79]);
+  assert.equal(latest.receipt_ids.length, 1);
+  const before = provider.hits();
+  assert.equal((await rewriteSummary(id)).status, "current");
+  assert.equal(provider.hits(), before);
+  await sql`INSERT INTO editorial_overrides (article_id, fields) VALUES (${id}, '{"summary":"人工修订"}'::jsonb)`;
+  assert.equal((await rewriteSummary(id)).status, "skipped");
+  assert.equal(provider.hits(), before);
 });
