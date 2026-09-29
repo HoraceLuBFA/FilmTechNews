@@ -10,17 +10,18 @@
 
 `itemType` 必须七选一：
 
-- `model_release`：新模型或大版本更新
-- `product_launch`：新产品、工具或重大功能更新
-- `tool_or_prompt`：可直接复用的方法、Prompt、Skill 或技巧
-- `research_paper`：论文、研究或技术报告
-- `industry_event`：融资、收购、监管、诉讼、商业动作或人事
-- `opinion_analysis`：观点、行业判断、复盘或长访谈
-- `tutorial_explainer`：教程、科普、解读或评测
+- `model_release`：与图像、视频、声音、三维及影视制作相关的 AI 模型发布或大版本更新；普通软硬件发布不归此类
+- `product_launch`：摄影与制作设备、后期软件、插件、服务或重大功能的发布、更新
+- `tool_or_prompt`：可直接复用的制作方法、脚本、工程工具、配置、Prompt 或技巧，以可使用的产物为核心
+- `research_paper`：成像、图形、声音、色彩、媒体系统等论文、实验研究或技术报告；正式标准的发布动作归 industry_event
+- `industry_event`：标准正式发布或修订、政策与工会协议、并购、关闭、产能与设施变化、授权变化及有具体后果的商业或人事事件
+- `opinion_analysis`：有新证据或明确论证的产业判断、方法取舍、复盘或以观点为主的访谈
+- `tutorial_explainer`：摄影/VFX/剪辑/调色/声音等技术幕后、工作流拆解、教程、标准解读、独立测试或评测
 
-优先级：发了模型选 model_release；发了工具选 product_launch；发了 Prompt 或方法选 tool_or_prompt；论文优先 research_paper；评测选 tutorial_explainer。
+按材料的核心动作选类型：有采访形式的技术拆解可归 tutorial_explainer；厂商发布与后续独立测试分别按 product_launch 与 tutorial_explainer 评价。保留这七种类型，不另造类型或输出字段；此步骤不评分。
 
-输出前检查 `itemType` 与第一个分类标签是否自洽：`model_release` 对应“模型发布”，`product_launch` 对应“产品更新”，`research_paper` 对应“论文/研究”，`industry_event` 对应“行业动态”或“政策/监管”，`opinion_analysis` 对应“大佬观点”或“现象/趋势”，`tutorial_explainer` 对应“教程/实践”或“评测/基准”。如果二者冲突，按当前材料的核心事件修正后再输出。
+
+第一个分类标签须与核心内容相符；技术幕后使用“技术幕后”，标准发布或解读可使用“标准/规范”。只从下面的白名单选择。
 
 ## 作者角色
 
@@ -32,14 +33,10 @@
 
 ## 标签
 
-`tags` 输出 1–6 个字符串。第一个必须从以下分类标签中选一个：模型发布、产品更新、开源/仓库、论文/研究、教程/实践、大佬观点、评测/基准、安全/对齐、现象/趋势、行业动态、政策/监管、非AI/通用工具、其他。
+`tags` 输出 1–6 个字符串，第一个必须是以下分类标签之一：产品更新、模型发布、技术幕后、论文/研究、开源/仓库、教程/实践、专业观点、评测/基准、现象/趋势、行业动态、政策/监管、标准/规范、其他。其后最多 5 个主题或实体标签，只能从以下白名单选择；没有匹配项就只返回分类标签，不创造标签。
 
-其后可选 0–5 个适用标签，并且只能来自以下两个白名单：
-
-- 主题：Agent、编码、推理、多模态、语音、视频、图像生成、RAG、端侧、数据/训练、搜索、部署/工程、开源生态、具身智能、MCP/工具调用
-- 实体：OpenAI、Anthropic、DeepSeek、DeepMind、Google、Meta、Microsoft、xAI、Hugging Face、GitHub、arXiv
-
-正文中即使明确出现了 NVIDIA、Apple、阿里等其他实体，也不要把它们放进 `tags`。不要创造白名单之外的标签。没有适用的主题或实体时，只返回第一个分类标签；例如学校限制 AI 使用的监管新闻，不需要强行归到“编码”或“推理”。
+- 主题：摄影、镜头、灯光、现场录音、监看、VFX、动画、虚拟制作、实时渲染、动作捕捉、剪辑、调色、色彩管理、声音、沉浸声、编码、存储、云制作、IP制作、质控、修复保存、放映、HDR、VR/XR、视频生成、图像生成、声音生成、三维生成、AI工作流、开源生态、Agent、推理
+- 实体：ARRI、Sony、Blackmagic Design、RED、Canon、Panavision、Cooke、ZEISS、Adobe、Avid、FilmLight、Foundry、SideFX、Autodesk、Maxon、Blender、Epic Games、disguise、Dolby、IMAX、Barco、Christie、ILM、Framestore、Weta FX、DNEG、SMPTE、DCI、ASWF、Runway、可灵、OpenAI、Anthropic、DeepSeek、DeepMind、Google、Meta、Microsoft、xAI、Hugging Face、GitHub、arXiv
 
 ## 候选阅读价值
 
@@ -59,4 +56,4 @@
 
 只返回合法 JSON，不要 Markdown，不要解释。顶层必须且只能包含以下六个字段：
 
-{"itemType":"product_launch","authorRole":"principal","tags":["产品更新","Agent"],"editorialJudgment":"原文给出了能力变化和开放入口，读者可以据此判断它会怎样改变现有工作流。","titleZh":"某产品发布智能体功能","summaryZh":"某产品发布新的智能体功能，给出了开放入口和主要能力变化。"}
+{"itemType":"product_launch","authorRole":"principal","tags":["产品更新","色彩管理"],"editorialJudgment":"原文列出版本、格式支持与升级条件，可用于检查现有素材处理流程的兼容性。","titleZh":"某后期软件更新色彩管理功能","summaryZh":"某后期软件更新色彩管理功能，说明支持的格式与升级条件。"}

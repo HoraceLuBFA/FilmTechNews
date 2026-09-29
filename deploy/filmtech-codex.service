@@ -1,0 +1,19 @@
+[Unit]
+Description=FilmTechNews private Codex text adapter
+After=network-online.target docker.service
+Wants=network-online.target
+[Service]
+Type=simple
+WorkingDirectory=/opt/filmtechnews
+EnvironmentFile=/opt/filmtechnews/.codex-bridge.env
+ExecStart=/usr/local/bin/node /opt/filmtechnews/scripts/codex-bridge.mjs
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/.codex /opt/filmtechnews/.data
+[Install]
+WantedBy=multi-user.target

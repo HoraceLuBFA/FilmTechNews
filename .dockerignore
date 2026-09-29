@@ -9,3 +9,10 @@ apps/web/.react-router
 .git
 .github
 *.log
+
+# Local preview and font-generation inputs are not image contents.
+package
+fontsource-noto-sans-sc-*.tgz
+docs
+tests
+抓取来源建议.md

@@ -1,0 +1,14 @@
+# Use the existing Nginx on Tencent. The site listener is local to this host.
+services:
+  db:
+    image: postgres:17-bookworm
+    ports:
+      - "127.0.0.1:55441:5432"
+  api:
+    environment:
+      LLM_BASE_URL: http://172.17.0.1:3320/v1
+  worker:
+    environment:
+      LLM_BASE_URL: http://172.17.0.1:3320/v1
+    cpus: 0.75
+    mem_limit: 768m

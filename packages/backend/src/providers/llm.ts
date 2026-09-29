@@ -201,6 +201,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         throw error;
       }
       const text = await res.text();
+      if (res.headers.get("x-provider-outcome") === "unknown") throw new Error("Provider outcome unknown; do not retry automatically");
       if (!res.ok) {
         const retryable = res.status === 429 || res.status >= 500;
         throw new ProviderRejectedError(`HTTP ${res.status}: ${text.slice(0, 500)}`, res.status, retryable);
