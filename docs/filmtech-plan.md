@@ -52,6 +52,13 @@
 
 用户进一步要求文章摘要足够详细，并清理“AI 圈”“AI 日报”等上游语境。已修改两条文章写作路径、移除文章摘要 190 字压缩、保留自然段并扩大正文输入。同步清理热榜、主题页、报纸页眉和归档、空状态、反馈示例、页脚、分享图与 OpenAPI 的领域表述；AI 评分、翻译等功能说明及内部兼容键保留。
 
-历史公开文章通过 `scripts/rewrite-summaries.ts` 单独刷新摘要，保留选择判断和人工覆盖。首次尝试碰到现有每小时预算上限，未提交摘要变更。正在使用本机临时维护进程等待预算窗口并批量刷新；完成后自动恢复 LaunchAgent 常规 worker。进程及证据入口：`.data/verification/summary-maintenance.py`、`summary-rewrite-retry.log`。不要同时另启常规 worker 抢占预算或重复执行维护脚本。
+历史公开文章通过 `scripts/rewrite-summaries.ts` 单独刷新摘要，保留选择判断和人工覆盖。首次尝试碰到现有每小时预算上限，未提交摘要变更。随后按原预算自动等待，已完成本批全部 17 篇刷新，进程退出码为 0，LaunchAgent 常规 worker 已自动恢复。每分钟 10、每小时 100、每天 300 次预算均未调整。维护及证据入口：`.data/verification/summary-maintenance.py`、`summary-rewrite-retry.log`。该临时维护进程已结束，不需要再次运行。
 
-已通过全套后端与桥接测试 142 项、摘要刷新专项 10 项（包含新增刷新测试）、前端测试 16 项和类型检查。部署后还需公网 smoke 与实际摘要抽查。
+已通过空库上的全套后端与桥接测试 143 项、前端测试 16 项、类型检查与生产构建；本地及公网 smoke 均为 30 项通过。10 个公开页面或接口的上游领域文案检查无残留。浏览器工具不可用，未完成真实浏览器视觉复核；HTTP/SSR 验收不冒充视觉验收。
+
+
+本批 17 篇摘要最终为 278–1,898 字符、3–6 段。逐篇核对公开 API 与数据库的摘要一致，原标题、评分、精选状态、分类和标签保持不变。代表样本：Backrooms 1,744 字符、StEM3-VP 882 字符、Molus X100 评测 1,674 字符。4 篇代表文章的 SSR 摘要段落与数据库逐段比对，元描述保持简短。
+
+对照来源抽查后，通过带审计的编辑覆盖修正 Backrooms 的 up-res 与 found footage 术语，区分 Molus X100 的作者约数与表格实测值，为播客介绍及杂志介绍注明材料范围。这 4 篇覆盖由 `codex:summary-review` 写入，不代表用户逐条审定；旧模型结果仍保留。随后将术语与节目介绍边界补入共享提示词，供后续文章使用。本次批量使用的提示词版本保存在 `.data/verification/summary-batch-version.json`，与这次补充后的未来生成版本有区别，不能用新版本号误判本批回执。
+
+最终证据：`.data/verification/summary-cloud-accepted.json`、`summary-cloud-ssr.json`、`summary-cloud-copy-audit.json` 和 `summary-cloud-final-smoke.log`。这些是本次验收快照，后续新稿会继续增加。用户原始来源笔记未修改、未提交；运行数据、回执和正文均不入 Git。
