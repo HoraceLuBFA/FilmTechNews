@@ -6,7 +6,7 @@
 
 腾讯云 `/opt/filmtechnews` 运行 Docker Compose 的 PostgreSQL、API、web 和 worker。worker 接管采集、正文提取、预筛、双次评分、详细中文摘要、结构抽取、事件归组与综述，以及日报、周报、月报和补任务。Web 主机端口绑定 `127.0.0.1:3310`，数据库绑定 `127.0.0.1:55441`，公网只有现有 Nginx 的 HTTP/HTTPS。生产更新不再依赖 Mac 开机、登录或 SSH 隧道。
 
-宿主机 `filmtech-codex.service` 运行私有桥接，监听 Docker 网桥上的 3320 端口。它调用服务器自己的 `/usr/local/bin/codex`，由既有入口加载服务器管理员维护的代理配置，使用服务器自己的 Codex 登录；认证令牌没有复制到容器。本项目不维护或修改主机代理规则。模型固定为 `gpt-5.6-sol`，推理强度 `high`；各能力当前均指向该默认模型。
+宿主机 `filmtech-codex.service` 运行私有桥接，监听 Docker 网桥上的 3320 端口。它调用服务器自己的 `/usr/local/bin/codex`，由既有入口加载服务器管理员维护的代理配置，使用服务器自己的 Codex 登录；认证令牌没有复制到容器。本项目不维护或修改主机代理规则。模型固定为 `gpt-5.6-sol`，推理强度 `medium`；各能力当前均指向该默认模型。
 
 采集同样沿用主机现有的 HTTP 代理。因代理只监听宿主机回环地址，worker 使用 host 网络，并将数据库和站内请求指向宿主机的本地端口；worker 自身没有 HTTP 监听器。`EGRESS_PROXY_URL` 指向现有回环代理，沿用项目的出站路由及 SSRF 检查，无需为代理新增公网或 Docker 网桥监听。API、web、数据库仍使用原 Compose 网络。验收曾发现 ASWF 直连返回 HTML、postPerspective 直连超时，两站经现有代理返回 RSS 后才进行该配置调整。
 

@@ -8,7 +8,7 @@
 
 ## 默认模型（2026-09-29 用户指定）
 
-影视日报生成任务默认使用 `gpt-5.6-sol`，推理强度 `high`。已替换初始试运行的 gpt-6-astra / low，适用于后续新任务；既有文章及调用回执保留原记录。适配器参数测试通过，并使用新配置完成一次实际结构化摘要调用，本地回执 32 返回成功；本地预览与现有云端 worker 均使用这一配置。
+影视日报生成任务默认使用 `gpt-5.6-sol`，推理强度现为 `medium`，适用于后续新任务；既有文章及调用回执保留原记录。早期从 gpt-6-astra / low 切换到 gpt-5.6-sol / high 时，曾以本地回执 32 完成真实验证；之后用户要求仅将推理强度改为 medium，模型和其他运行参数不变。
 
 ## 当前状态（2026-09-29）
 
@@ -76,3 +76,9 @@
 最终采集复测：13 个启用来源全部 `ok`，包括原先直连失败的 ASWF 和 postPerspective，最新 `last_error` 均为空。切换后分析记录 42–44 已进入公开层，分别为 410、661、837 字摘要；其中 After Effects AI Assistant 文章详情 API 和 SSR 均为 HTTP 200，公开摘要长度与数据库一致。云端 worker 最终使用 host 网络，桥接健康返回 `gpt-5.6-sol`、`high`；systemd 服务已 active/enabled，容器 restart=unless-stopped，restart count=0，本机生产 LaunchAgent 保持 disabled。
 
 本地与公网 smoke 各 30 项通过。验收时近一小时调用数达到原有 100 次上限，采集继续运行，剩余模型处理按既有预算退避机制续跑；本次未提高额度。证据快照另见 `cloud-migration-final-sources.json` 和 `cloud-migration-public-article.json`，均留在私有验证目录，不提交正文或运行数据库。
+
+## 2026-09-29 推理强度调整为 medium
+
+按用户最新要求，仅将 Codex 实际 CLI 参数、桥接健康标记和 worker 的 `LLM_EXTRA_JSON` 从 high 改为 medium，模型保持 `gpt-5.6-sol`。腾讯云 worker 已排空后重载，服务健康返回 medium；本机独立预览桥接和 worker 同步重载，原生产 LaunchAgent 继续禁用。采集来源、筛选阈值、摘要要求、并发、预算、代理及定时任务不变，既有内容和历史回执不重写。私有环境文件的对应参数同步修改并保留备份。
+
+类型检查、143 项后端及桥接测试、16 项前端测试、生产构建和公网 30 项 smoke 通过。真实调用验证在预算检查处被阻止，未发出模型请求；验收时近一小时已满 100 次，最早释放额度为北京时间 9 月 30 日 00:20 左右，以实际滚动窗口为准。未绕过预算，正常队列按原退避机制续跑。因此此次已验证配置生效和请求参数，尚未取得 medium 的真实模型完成回执。证据在 `.data/verification/medium-checks.log`、`medium-cloud-runtime.json`、`medium-real-call.log` 与 `medium-public-smoke.log`。

@@ -18,7 +18,7 @@ services:
       EGRESS_PROXY_URL: http://127.0.0.1:7890
       LLM_BASE_URL: http://172.17.0.1:3320/v1
       LLM_MODEL: gpt-5.6-sol
-      LLM_EXTRA_JSON: '{"reasoning_effort":"high"}'
+      LLM_EXTRA_JSON: '{"reasoning_effort":"medium"}'
       MODEL_CALLS_ENABLED: "true"
       COLLECT_ENABLED: "true"
       ANALYZE_CONCURRENCY: "1"

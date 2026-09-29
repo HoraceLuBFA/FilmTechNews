@@ -13,7 +13,7 @@ const server = createServer(async (req, res) => {
   const supplied = Buffer.from(req.headers.authorization || '');
   const expected = Buffer.from(`Bearer ${token}`);
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return reply(401, { error: 'Unauthorized' });
-  if (req.method === 'GET' && req.url === '/health') return reply(200, { ok: true, model, reasoningEffort: 'high', active });
+  if (req.method === 'GET' && req.url === '/health') return reply(200, { ok: true, model, reasoningEffort: 'medium', active });
   if (req.method !== 'POST' || req.url !== '/v1/chat/completions') return reply(404, { error: 'Not found' });
   if (active >= 4) return reply(429, { error: 'Private model worker is busy' });
   let body = '';

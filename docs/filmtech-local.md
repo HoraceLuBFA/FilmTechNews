@@ -19,7 +19,7 @@ python3 scripts/local.py stop
 
 使用官方 Codex CLI 管理的 ChatGPT 登录，运行 `codex login status` 确认登录。项目不读取或复制 OAuth 令牌，不将 ChatGPT 令牌当作 OpenAI API key。生产长期定时任务宜另行评估官方建议的 API key 接入，OAuth 当前作为用户本人控制的私有试验。参考 [官方认证说明](https://learn.chatgpt.com/docs/auth)、[非交互调用](https://learn.chatgpt.com/docs/non-interactive-mode)。
 
-`CODEX_BRIDGE_TOKEN` 为本地自行生成的随机访问密码，至少 32 字符，与 `LLM_API_KEY` 相同。`LLM_BASE_URL=http://127.0.0.1:3320/v1`，`LLM_MODEL` 和 `CODEX_BRIDGE_MODEL` 均设为 `gpt-5.6-sol`，推理强度为 `high`，`LLM_EXTRA_JSON={"reasoning_effort":"high"}`。桥接程序用 `codex exec`，关闭工具、插件、用户项目指令和记忆，使用临时只读工作目录；只接受 system/user 纯文本消息。模型调用仍经过原项目回执、预算和结果验证。用量记录来自 CLI，费用未知，不标为免费或虚构 API 账单。
+`CODEX_BRIDGE_TOKEN` 为本地自行生成的随机访问密码，至少 32 字符，与 `LLM_API_KEY` 相同。`LLM_BASE_URL=http://127.0.0.1:3320/v1`，`LLM_MODEL` 和 `CODEX_BRIDGE_MODEL` 均设为 `gpt-5.6-sol`，推理强度为 `medium`，`LLM_EXTRA_JSON={"reasoning_effort":"medium"}`。桥接程序用 `codex exec`，关闭工具、插件、用户项目指令和记忆，使用临时只读工作目录；只接受 system/user 纯文本消息。模型调用仍经过原项目回执、预算和结果验证。用量记录来自 CLI，费用未知，不标为免费或虚构 API 账单。
 
 `python3 scripts/local.py start` 检测到 CODEX_BRIDGE_TOKEN 时同时运行桥接程序；使用普通 OpenAI-compatible API 时不需要该变量。桥接监听器不得代理到公开网站。配置或网络错误的非致命警告不等于调用失败，验收以 `turn.completed`、最终消息和业务 schema 为准；超时或未知结果进入 unknown 回执，遵循原项目 30 分钟后至多一次恢复策略。
 

@@ -11,7 +11,7 @@ export async function codexCompletion(messages, { model, timeoutMs = 110_000, bi
   const cwd = await mkdtemp(join(tmpdir(), 'filmtech-codex-'));
   const args = ['exec', '--ignore-user-config', '--ephemeral', '--skip-git-repo-check', '--json', '-s', 'read-only', '-C', cwd, '-m', model];
   const config = {
-    model_reasoning_effort: 'high', project_doc_max_bytes: 0, web_search: 'disabled',
+    model_reasoning_effort: 'medium', project_doc_max_bytes: 0, web_search: 'disabled',
     'features.shell_tool': false, 'features.unified_exec': false, 'features.shell_snapshot': false,
     'features.apps': false, 'features.plugins': false, 'features.hooks': false, 'features.memories': false,
     'features.multi_agent': false, 'features.browser_use': false, 'features.computer_use': false,

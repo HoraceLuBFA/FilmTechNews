@@ -2,7 +2,7 @@
 
 面向影视制作、影像技术及媒体工程的资讯聚合站，基于 [AIHOT](https://github.com/KKKKhazix/AIHOT) 改造。公开信源经过采集、相关性筛选、评分、中文摘要和归组，通过网站、RSS、API 与 MCP 提供阅读索引。原项目说明保存在 [README.upstream.md](README.upstream.md)。
 
-线上地址：<https://filmtech.lumenghe.com>。当前由腾讯云独立采集、生成和展示，调用服务器自己的 Codex，使用 `gpt-5.6-sol`、`high`。Mac 仅保留独立本地预览，生产更新不依赖本机开机。
+线上地址：<https://filmtech.lumenghe.com>。当前由腾讯云独立采集、生成和展示，调用服务器自己的 Codex，使用 `gpt-5.6-sol`、`medium`。Mac 仅保留独立本地预览，生产更新不依赖本机开机。
 
 ## 内容范围
 
