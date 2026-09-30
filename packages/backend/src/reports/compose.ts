@@ -209,6 +209,11 @@ export function periodPrompt(kind: "weekly" | "monthly", startDate: string, endD
 export interface PeriodOptions { historical?: boolean; asOf?: Date }
 
 async function composePeriod(kind: "weekly" | "monthly", key: string, startDate: string, endDateInclusive: string, reason: string, options: PeriodOptions = {}) {
+  // A later scheduled revision must retain the source-date attribution of an explicitly repaired issue.
+  if (!options.historical && !options.asOf) {
+    const [existing] = await sql`SELECT content->'generator'->>'mode' AS mode FROM reports WHERE kind=${kind} AND key=${key}`;
+    if (existing?.mode === "historical") options = { ...options, historical: true };
+  }
   const start = beijingMidnight(startDate);
   let end = beijingMidnight(addDays(endDateInclusive, 1));
   if (options.asOf) {

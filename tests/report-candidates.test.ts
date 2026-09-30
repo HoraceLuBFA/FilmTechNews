@@ -50,6 +50,11 @@ test("historical weekly and monthly reports include backfills and respect an exp
       assert.equal(old!.content.metrics.selectedCount,0);
     }
   }
+  await composeWeekly("2020-W07", "later scheduled regeneration");
+  const [regenerated] = await sql`SELECT content FROM reports WHERE kind='weekly' AND key='2020-W07'`;
+  assert.ok(regenerated!.content.storyOrder.includes(inside));
+  assert.ok(regenerated!.content.storyOrder.includes(later));
+  assert.equal(regenerated!.content.generator.mode,"historical");
 });
 after(async () => {
   await sql`DELETE FROM reports WHERE (kind='weekly' AND key='2020-W07') OR (kind='monthly' AND key='2020-02')`;
