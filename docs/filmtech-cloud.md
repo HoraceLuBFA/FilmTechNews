@@ -171,3 +171,7 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 用户已明确选择在补跑后临时保留日常更新余量，并自动恢复原限额。`scripts/filmtech-budget-grace.ts` 在严格维护验收之后冻结已有真实请求的最大序号，按仍处于分钟/小时/日窗口的这些旧请求数，为原预算 10/100/300 添加临时余量；新日常请求照常计数，旧请求的回执、状态和 live origin 均不改写。`filmtech-budget-grace.timer` 每分钟重新核对，临时余量随旧请求自然到期递减，全部满 24 小时后恢复原预算及备注。单位文件已安装，只有成功收尾并建立数据卷 `filmtech-budget-grace-20260930/state.json` 后才启用计时器。`budget-grace-opened.json` 记录实际截止时间，失败时恢复原预算和常规 worker，不能只凭服务已启动宣布临时余量已生效。
 
 新增功能已通过 153 项空库后端与桥接测试、18 项前端测试、类型检查和生产构建，公网 30 项 smoke 通过。来源统计/分页测试覆盖来源隔离、撤下及延迟公开内容排除，历史归组测试确认旧稿不增加当前 48 小时热度，预算生命周期测试确认自动恢复且不改写任何真实请求。主题计数另修正为遵守精选的公开释放规则，需核对该补充检查及服务器最后镜像。最终仍须验收发现刷新服务退出 0、严格数据库和公网报刊检查、实际来源卡片按钮与数量、来源文章分页、热点与主题结果、真实浏览器样式，以及计时器和常规 worker 的生效状态。
+
+发现入口的初始新增/修订材料实际为 60 条。为缩短逐篇预筛的等待，向维护容器发送协作式 TERM；它完成当前文章及真实付费请求后才退出，日志明确记录 `Maintenance interrupted after pending model calls drained`，原预算和 worker 的恢复随其结束执行。此人为切换退出码 1 保留，不能解释为文章分析失败。先行通过共享发布入口清理 686 条公开摘要投影，其中 167 条有变化，原摘要投影备份至 `discovery-refresh/summary-projection-before.json`，原分析未改写。
+
+当前权威入口更新为 `filmtech-discovery-refresh-pool-20261001.service`，私有脚本 `refresh-discovery-pool.mjs`、`run-discovery-pool.sh`，日志 `discovery-pool.log`、`discovery-pool-restore.log`，终态 `discovery-pool-exit-code`。它等待旧入口排空结束，复用完成结果；两名消费者各自按最多八篇、最多 90KB 的输入批量预筛，再逐篇执行原有双评分、摘要和结构抽取，最多四个模型请求在途，桥接上限仍为四。批量结果绑定文章 ID 和修订并保存回执；归组仍严格串行，以免并行创建重复事件。数据卷检查点另存 `discovery-refresh-pool/`，不覆盖旧入口。严格数据库与公网验收仍保存至 `final-discovery-cloud.json`、`final-discovery-public.json`，自动到期预算仅在这两项通过后开启。代码 `49c0472` 已推送，API/web 最后镜像包含主题公开释放计数修正，补充统计回归测试通过。
