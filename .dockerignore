@@ -6,6 +6,8 @@ apps/web/.react-router
 .env
 .env.*
 !.env.example
+.codex-bridge.env
+.preview.htpasswd
 .git
 .github
 *.log

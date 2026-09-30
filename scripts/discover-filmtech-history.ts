@@ -12,6 +12,7 @@ import { identityKeyForUrl } from "@aihot/backend/lib/url";
 import type { SourceRow, Candidate } from "@aihot/backend/sources/types";
 
 const [startArg, endArg] = process.argv.slice(2);
+const refresh=process.argv.includes("--refresh");
 const start = new Date(startArg ?? ""), end = new Date(endArg ?? "");
 if (!Number.isFinite(+start) || !Number.isFinite(+end) || end <= start) throw Error("Usage: discover-filmtech-history.ts START_ISO END_ISO");
 const directory = path.join(config.dataDir, "all-source-history-20260930");
@@ -30,7 +31,7 @@ async function c21Page(page:number):Promise<Candidate[]> {
 try {
  for (let offset=0; offset<sources.length; offset+=4) await Promise.all(sources.slice(offset,offset+4).map(async source => {
   const file=path.join(directory,source.id+".json");
-  try { const prior=JSON.parse(await readFile(file,"utf8")); if(prior.start===startArg && prior.end===endArg && prior.status==='covered'){log({id:source.id,status:'cached',count:prior.items.length});return;} } catch {}
+  try { const prior=JSON.parse(await readFile(file,"utf8")); if(prior.start===startArg && prior.end===endArg && (prior.status==='covered'&&!refresh || refresh && source.id==='cinemontage' && String(prior.reason).includes('HTTP 403'))){log({id:source.id,status:'cached',count:prior.items.length});return;} } catch {}
   if(source.id==='redshark') {
    const menu=await guardedFetch('https://www.redsharknews.com/',{headers:{'user-agent':BROWSER_UA},timeoutMs:25000});
    const $=cheerio.load(menu.text());const tags=[...new Set($('.header--wrapper a[href*="/tag/"]').map((i,e)=>$(e).attr('href')!).get())];
