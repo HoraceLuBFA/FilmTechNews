@@ -132,3 +132,8 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 为尽快清空剩余材料，处理池最终调整为四篇动态分配任务，最多八个模型请求在途；单篇的双评分仍顺序独立调用，摘要与模型档位不变。服务器现场观察 CLI 进程内存与可用内存后采用该有界上限，临时配置只写入 `filmtech-codex.service.d/history-completion.conf`；维护结束按内容校验移除它，恢复桥接默认上限四，常规 worker 的文章并发仍为一。再次切换前两个文章事务均等待屏障且桥接 active=0，收到的回执正常保留，未出现新未知请求。动态处理池避免一篇结束后空等另一篇，继续使用原批次检查点。
 
 当前权威入口为 `filmtech-full-finish-pool-20260930.service`、`filmtech-full-finish-pool-audit-20260930.service`。恢复优先检查本组：`pool.log`、`pool-build.log`、`pool-restore.log`、`pool-audit.log`、`pool-exit-code` 和 `final-cloud.json`，仍位于 `.data/full-finish-20260930/`。之前 full-finish 与 parallel 单元是保留的人工切换记录，不重复启动；冻结范围、发现并集合、已取得素材和原备份不变。两次临时屏障均已释放并删除设置键，现场安全核对保存在私有 pool-safe-stop-check.json。
+
+
+实际观察发现，32 篇波次末尾只剩一篇较慢材料时，其余位置会空等。维护入口改为四个持续消费批次的队列，预筛与单篇分析按同一消费者串行接续，每个消费者最多两个模型请求，总上限仍为八；检查点写入串行化，致命错误停止其他消费者领取新任务并等待在途调用结束。模型、双评分、详细摘要与筛选门槛均不改变。149 项空库后端及桥接回归测试、类型检查和镜像私有文件排除核验通过。切换前数据库屏障确认一个事务等待、桥接 active=0，再发终止信号和释放屏障，旧 pool 人为退出码 143、原预算和 worker 的恢复记录保留。
+
+当前权威入口更新为 `filmtech-full-finish-continuous-20260930.service`、`filmtech-full-finish-continuous-audit-20260930.service`，操作脚本 `run-continuous-cloud.sh`、`run-continuous-audit.sh`，日志 `continuous.log`、`continuous-build.log`、`continuous-restore.log`、`continuous-audit.log`，终态 `continuous-exit-code`、`final-cloud.json`，仍在服务器 `.data/full-finish-20260930/`。来源冻结、备份和数据卷检查点不变；不要重启旧入口。主任务退出时恢复预算 10/100/300、桥接默认并发四与常规 worker，最终验收须确认这些实际生效状态及公开报刊。

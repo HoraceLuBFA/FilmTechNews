@@ -127,19 +127,21 @@ try{
     await save('jobs.json',jobs);log({status:'analyzing',pending:initial.length,batches:jobs.length,prefilterConcurrency:4,articleConcurrency:4});
     for(let round=1;round<=3;round++){
      log({status:'round-start',round});
-     for(let offset=0;offset<jobs.length;offset+=4){
+     const activeIds=new Set((await pending()).map(a=>a.id));let next=0;let halted=false;
+     // Each consumer owns its batch until saved and processed. No wave waits for
+     // its slowest article; four consumers still make at most eight model calls.
+     let checkpoint=Promise.resolve();
+     const saveJobs=()=>{const write=checkpoint.then(()=>save('jobs.json',jobs));checkpoint=write.catch(()=>{});return write;};
+     const consume=async()=>{try{while(next<jobs.length){
+      if(halted)return;
       if(interrupted)throw Error('Operator stopped after draining paid calls');
-      const wave=jobs.slice(offset,offset+4);
-      const active=await pending();const activeIds=new Set(active.map(a=>a.id));
-      const results=await Promise.allSettled(wave.map(j=>j.ids.some(id=>activeIds.has(id))?prefilter(j):Promise.resolve(null)));
-      await save('jobs.json',jobs);
-      const work:Array<{id:string;batch:Batch}>=[];
-      for(let i=0;i<results.length;i++){const r=results[i]!;if(r.status==='rejected')throw r.reason;if(r.value)for(const id of wave[i]!.ids)work.push({id,batch:r.value});}
-      let next=0;
-      const consume=async()=>{while(next<work.length){if(interrupted)throw Error('Operator stopped after draining paid calls');const a=work[next++]!;await processArticle(a.id,a.batch);}};
-      const done=await Promise.allSettled(Array.from({length:4},consume));for(const r of done)if(r.status==='rejected')throw r.reason;
+      const offset=next++,job=jobs[offset]!;
+      if(!job.ids.some(id=>activeIds.has(id)))continue;
+      const batch=await prefilter(job);await saveJobs();
+      if(batch)for(const id of job.ids){if(halted)return;if(interrupted)throw Error('Operator stopped after draining paid calls');await processArticle(id,batch);}
       log({status:'progress',round,batchOffset:offset,remaining:(await pending()).length});
-     }
+     }}catch(error){halted=true;throw error;}};
+     const done=await Promise.allSettled(Array.from({length:4},consume));for(const r of done)if(r.status==='rejected')throw r.reason;
      if(!(await pending()).length)break;
      if(round===3)throw Error('Articles unresolved after bounded recovery');
      const waited=await unknownGate();if(!waited)await new Promise(resolve=>setTimeout(resolve,10_000));
