@@ -119,12 +119,12 @@ try{
     await save('imports.json',imports);log({status:'imported',created:imports.reduce((n,x)=>n+x.created,0),revised:imports.reduce((n,x)=>n+x.revised,0),materials:imports.reduce((n,x)=>n+x.count,0)});
     const initial=await pending();const [usage]=await sql`SELECT count(*)::int AS n FROM receipt_attempts WHERE service='llm' AND origin='live' AND started_at>now()-interval '1 day'`;
     const allowance=usage!.n+initial.length*10+300;
-    await updateBudget('llm',{perMinute:Math.max(original.per_minute,30),perHour:Math.max(original.per_hour,allowance),perDay:Math.max(original.per_day,allowance),reason:marker},actor);raised=true;
+    await updateBudget('llm',{perMinute:Math.max(original.per_minute,60),perHour:Math.max(original.per_hour,allowance),perDay:Math.max(original.per_day,allowance),reason:marker},actor);raised=true;
     await unknownGate();
     const jobs:Job[]=process.argv.includes('--resume')?JSON.parse(await readFile(path.join(directory,'jobs.json'),'utf8')):[];
     if(!jobs.length)for(const rows of [initial.filter(a=>a.group!=='C'),initial.filter(a=>a.group==='C')])jobs.push(...await makeJobs(rows));
     const assigned=new Set(jobs.flatMap(j=>j.ids));jobs.push(...await makeJobs(initial.filter(a=>!assigned.has(a.id))));
-    await save('jobs.json',jobs);log({status:'analyzing',pending:initial.length,batches:jobs.length,prefilterConcurrency:4,articleConcurrency:2});
+    await save('jobs.json',jobs);log({status:'analyzing',pending:initial.length,batches:jobs.length,prefilterConcurrency:4,articleConcurrency:4});
     for(let round=1;round<=3;round++){
      log({status:'round-start',round});
      for(let offset=0;offset<jobs.length;offset+=4){
@@ -135,7 +135,9 @@ try{
       await save('jobs.json',jobs);
       const work:Array<{id:string;batch:Batch}>=[];
       for(let i=0;i<results.length;i++){const r=results[i]!;if(r.status==='rejected')throw r.reason;if(r.value)for(const id of wave[i]!.ids)work.push({id,batch:r.value});}
-      for(let i=0;i<work.length;i+=2){if(interrupted)throw Error('Operator stopped after draining paid calls');const done=await Promise.allSettled(work.slice(i,i+2).map(a=>processArticle(a.id,a.batch)));for(const r of done)if(r.status==='rejected')throw r.reason;}
+      let next=0;
+      const consume=async()=>{while(next<work.length){if(interrupted)throw Error('Operator stopped after draining paid calls');const a=work[next++]!;await processArticle(a.id,a.batch);}};
+      const done=await Promise.allSettled(Array.from({length:4},consume));for(const r of done)if(r.status==='rejected')throw r.reason;
       log({status:'progress',round,batchOffset:offset,remaining:(await pending()).length});
      }
      if(!(await pending()).length)break;

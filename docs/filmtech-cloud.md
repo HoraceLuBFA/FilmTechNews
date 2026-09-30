@@ -128,3 +128,7 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 来源刷新并集合共 2,380 个 URL，冻结时刻为 2026-09-30T11:49:52Z（北京时间 19:49:52），通过共享入口新增 27、修订 19 篇。首次收尾入口使用四批并行预筛、单篇串行写作。实际观察写作耗时后，采用临时数据库屏障等待所有在途模型结果返回，现场确认桥接 active=0 且维护事务等待屏障，再停止该入口；收到的模型回答保存在回执，屏障释放，未造成新的未知结果。该人为切换的旧退出状态不能解释为最终任务失败或完成。
 
 当前入口替换为 `filmtech-full-finish-parallel-20260930.service` 与 `filmtech-full-finish-parallel-audit-20260930.service`，日志 `parallel.log`、`parallel-build.log`、`parallel-restore.log`、`parallel-audit.log`，终态 `parallel-exit-code`、`final-cloud.json`。新增 `--resume` 复用来源冻结清单、旧预算快照和已保存批次，按文章当前修订跳过已完成结果；两篇文章并行，每篇评分仍独立进行，最多四个模型请求在途。新的退出处理在收到终止信号后等待当前付费请求返回，保存已有结果再退出。后续定时生成同一期周报/月报会保留其已修复的来源日期归档方式，防止自动更新再次丢掉历史补录；六项报刊边界测试通过。屏障最迟十分钟自行释放，私有 `barrier.log` 和本机安全停止核对记录保存实际现场证据。
+
+为尽快清空剩余材料，处理池最终调整为四篇动态分配任务，最多八个模型请求在途；单篇的双评分仍顺序独立调用，摘要与模型档位不变。服务器现场观察 CLI 进程内存与可用内存后采用该有界上限，临时配置只写入 `filmtech-codex.service.d/history-completion.conf`；维护结束按内容校验移除它，恢复桥接默认上限四，常规 worker 的文章并发仍为一。再次切换前两个文章事务均等待屏障且桥接 active=0，收到的回执正常保留，未出现新未知请求。动态处理池避免一篇结束后空等另一篇，继续使用原批次检查点。
+
+当前权威入口为 `filmtech-full-finish-pool-20260930.service`、`filmtech-full-finish-pool-audit-20260930.service`。恢复优先检查本组：`pool.log`、`pool-build.log`、`pool-restore.log`、`pool-audit.log`、`pool-exit-code` 和 `final-cloud.json`，仍位于 `.data/full-finish-20260930/`。之前 full-finish 与 parallel 单元是保留的人工切换记录，不重复启动；冻结范围、发现并集合、已取得素材和原备份不变。两次临时屏障均已释放并删除设置键，现场安全核对保存在私有 pool-safe-stop-check.json。

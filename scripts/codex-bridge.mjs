@@ -7,6 +7,8 @@ const model = process.env.CODEX_BRIDGE_MODEL || 'gpt-5.6-sol';
 const host = process.env.CODEX_BRIDGE_HOST || '127.0.0.1';
 const port = Number(process.env.CODEX_BRIDGE_PORT || 3320);
 const timeoutMs = Number(process.env.CODEX_BRIDGE_TIMEOUT_MS || 110_000);
+const maxConcurrent = Number(process.env.CODEX_BRIDGE_CONCURRENCY || 4);
+if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || maxConcurrent > 16) throw new Error('CODEX_BRIDGE_CONCURRENCY must be between 1 and 16');
 if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 900_000) throw new Error('CODEX_BRIDGE_TIMEOUT_MS must be between 1000 and 900000');
 if (!token || token.length < 32) throw new Error('Set a private CODEX_BRIDGE_TOKEN of at least 32 characters');
 let active = 0;
@@ -15,9 +17,9 @@ const server = createServer(async (req, res) => {
   const supplied = Buffer.from(req.headers.authorization || '');
   const expected = Buffer.from(`Bearer ${token}`);
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return reply(401, { error: 'Unauthorized' });
-  if (req.method === 'GET' && req.url === '/health') return reply(200, { ok: true, model, reasoningEffort: 'medium', timeoutMs, active });
+  if (req.method === 'GET' && req.url === '/health') return reply(200, { ok: true, model, reasoningEffort: 'medium', timeoutMs, maxConcurrent, active });
   if (req.method !== 'POST' || req.url !== '/v1/chat/completions') return reply(404, { error: 'Not found' });
-  if (active >= 4) return reply(429, { error: 'Private model worker is busy' });
+  if (active >= maxConcurrent) return reply(429, { error: 'Private model worker is busy' });
   let body = '';
   try {
     for await (const chunk of req) { body += chunk; if (body.length > 160_000) return reply(413, { error: 'Input too large' }); }
