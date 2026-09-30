@@ -206,10 +206,16 @@ export function periodPrompt(kind: "weekly" | "monthly", startDate: string, endD
   };
 }
 
-async function composePeriod(kind: "weekly" | "monthly", key: string, startDate: string, endDateInclusive: string, reason: string) {
+export interface PeriodOptions { historical?: boolean; asOf?: Date }
+
+async function composePeriod(kind: "weekly" | "monthly", key: string, startDate: string, endDateInclusive: string, reason: string, options: PeriodOptions = {}) {
   const start = beijingMidnight(startDate);
-  const end = beijingMidnight(addDays(endDateInclusive, 1));
-  const all = await candidates(start, end);
+  let end = beijingMidnight(addDays(endDateInclusive, 1));
+  if (options.asOf) {
+    if (!options.historical || !Number.isFinite(+options.asOf) || options.asOf > new Date() || options.asOf <= start) throw new Error("An as-of cutoff requires a valid historical period");
+    if (options.asOf < end) { end = options.asOf; endDateInclusive = beijingDate(new Date(+end - 1)); }
+  }
+  const all = await candidates(start, end, options.historical);
   const top = all.slice(0, kind === "weekly" ? 40 : 60);
   const dailyCount = (await sql<{ n: number }[]>`SELECT count(*) AS n FROM reports WHERE kind = 'daily' AND key >= ${startDate} AND key <= ${endDateInclusive}`)[0]?.n ?? 0;
   let themes: Array<{ heading: string; summary: string; storyRefs: ReportEntry[] }> = [];
@@ -218,9 +224,11 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   let receiptId: number | null = null;
   const model = await modelFor("report");
   if (top.length) {
+    const prompt = periodPrompt(kind, startDate, endDateInclusive, top);
     const res = await chatJson({
-      model, purpose: `report_${kind}`, subject: `report:${kind}:${key}`, promptVersion: REPORT_VERSION,
-      ...periodPrompt(kind, startDate, endDateInclusive, top), schema: PeriodSchema, temperature: 0.3, maxTokens: 2500,
+      model, purpose: `report_${kind}`, subject: `report:${kind}:${key}`, promptVersion: options.historical ? `${REPORT_VERSION}:historical-v1` : REPORT_VERSION,
+      ...prompt, user: options.historical ? `${prompt.user}\n这是按原文发布时间补录的历史汇编，当前可用入选材料最早为 ${top.map(e => e.publishedAt).filter(Boolean).sort()[0]}，资料截至 ${end.toISOString()}。请在总述说明实际材料覆盖范围；尚未结束的周期写为截至该时间的阶段汇总，不暗示整周或整月已完整采集。` : prompt.user,
+      schema: PeriodSchema, temperature: 0.3, maxTokens: 2500,
     });
     receiptId = res.receiptId;
     headline = res.data.headline.trim();
@@ -242,25 +250,25 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
     themes,
     storyOrder: top.map((e) => e.itemId),
     metrics: { totalStories: themes.reduce((n, t) => n + t.storyRefs.length, 0), selectedCount: all.length, reportsCovered: Number(dailyCount) },
-    generator: { version: REPORT_VERSION, model },
+    generator: { version: REPORT_VERSION, model, ...(options.historical ? { mode: "historical", attribution: "source-published-at", asOf: end.toISOString() } : {}) },
   };
   await saveReport(kind, key, start, end, content, reason, model);
   if (receiptId) await completeReceipt(sql, receiptId);
   return { key, entries: top.length };
 }
 
-export async function composeWeekly(label: string, reason = "scheduled") {
+export async function composeWeekly(label: string, reason = "scheduled", options: PeriodOptions = {}) {
   const range = isoWeekRange(label);
   if (!range) throw new Error(`bad week label ${label}`);
-  return composePeriod("weekly", label, range.start, range.end, reason);
+  return composePeriod("weekly", label, range.start, range.end, reason, options);
 }
 
-export async function composeMonthly(label: string, reason = "scheduled") {
+export async function composeMonthly(label: string, reason = "scheduled", options: PeriodOptions = {}) {
   const m = /^(\d{4})-(\d{2})$/.exec(label);
   if (!m) throw new Error(`bad month label ${label}`);
   const start = `${label}-01`;
   const next = Number(m[2]) === 12 ? `${Number(m[1]) + 1}-01-01` : `${m[1]}-${String(Number(m[2]) + 1).padStart(2, "0")}-01`;
-  return composePeriod("monthly", label, start, addDays(next, -1), reason);
+  return composePeriod("monthly", label, start, addDays(next, -1), reason, options);
 }
 
 /**

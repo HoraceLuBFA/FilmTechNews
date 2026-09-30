@@ -112,3 +112,15 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 宿主机 `filmtech-codex.service` 当前运行，桥接及客户端文件 SHA-256 与本地代码一致。`/usr/local/bin/codex` 解析为主机既有 `codex-clash` 入口，CLI 版本 0.153.4；worker 现场环境确认模型 gpt-5.6-sol、reasoning_effort medium、模型开关 true、文章分析并发 1。每个模型步骤单独启动 `codex exec --ignore-user-config --ephemeral --skip-git-repo-check --json -s read-only`，stdin 传递提示词与材料，工具关闭，输出事件流由应用解析并通过 schema 校验、回执和共享发布入口落库。登录凭据不读取、不复制。
 
 历史续跑在北京时间 18:57 又于批量预筛阶段取得未知结果并退出，续跑最后完成计数 548；收尾检查按主任务失败停止，八期日报尚未重建。退出日志确认恢复原预算 10/100/300 并启动常规 worker。桥接捕获错误后统一返回未知结果，CLI 超时上限 110 秒，stderr 不记录；现有日志不能明确区分超时、CLI 非零退出或事件流不完整，不将未知结果直接解释为账户额度耗尽。恢复时先核对未知回执的现状及一次自动放行记录，再决定安全续跑；本节替代上文续跑仍运行的历史描述。
+
+## 2026-09-30 全量收尾与日报、周报、月报更新
+
+用户要求尽快完成剩余文章并更新三类报刊。修复 CLI 110 秒硬终止和后端默认 120 秒等待的配合问题：腾讯云桥接改为最多 300 秒，默认模型 HTTP 最少等待 330 秒，worker 排空等待随配置延长，Docker 停止宽限 390 秒。桥接仅输出失败类型、退出码和耗时，不输出 stderr、提示词、凭据或账户信息。模型固定 gpt-5.6-sol / medium，单篇详细摘要、双评分、来源门槛和回执机制保持不变。
+
+新增显式维护入口 `scripts/complete-filmtech-history.ts`，默认只预览，`--apply` 才执行。来源公开归档再次核对至启动时的冻结时间，保留旧清单与新清单的并集合，不删除旧条目；CineMontage 已确认的 403 不重复绕过。预筛最多四批并行，每批最多八篇且按输入长度拆分，结果保存到私有检查点；逐篇分析、正文补齐、摘要和发布仍按现有流程串行。失败批次保留相同输入身份，未知回执等待现有 30 分钟自动放行一次，不无限重试；有供应商 429 时停止，不绕过实际账户限制。
+
+周报、月报新增显式 historical/asOf 选项，默认调度行为保持兼容；本次历史汇编按来源时间纳入补录文章，已结束周刊与当周阶段汇总分别生成，月刊注明实际材料覆盖和截止时刻。完成所有文章及公开释放后，重建 9 月 23 日至冻结日期的日报、2026-W39 和 W40 周报、2026-09 月报，保留旧报刊修订。模型成功返回不等同完成，必须继续核对实际文章修订、公开发布、回执、报刊候选和读者页面。
+
+服务器独立单元 `filmtech-full-finish-20260930.service` 和 `filmtech-full-finish-audit-20260930.service` 已启动，私有恢复目录 `.data/full-finish-20260930/` 保存 `cutoff`、`database-before.dump`、`maintenance.log`、`discovery.log`、`build.log`、`restore.log`、`exit-code`、`audit.log`、`final-cloud.json`；数据卷 `/data/history-completion-20260930/` 保存预算、旧报刊、导入清单、批次结果和 completed.json。上一阶段文件与备份保持原样。常规 worker 在本次维护期间停止，退出后恢复原预算和常规 worker；收尾检查只在主任务退出码 0 后执行，最终公开网页验收仍待完成。
+
+上线前验证通过类型检查、149 项空库后端与桥接测试、18 项前端测试、前端构建及本地烟雾检查。测试中的历史周报/月报验证补录纳入、截止边界、撤稿排除和旧修订保留，未访问外部模型服务。

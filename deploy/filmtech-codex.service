@@ -8,10 +8,11 @@ Type=simple
 WorkingDirectory=/opt/filmtechnews
 EnvironmentFile=/opt/filmtechnews/.codex-bridge.env
 Environment=CODEX_BINARY=/usr/local/bin/codex
+Environment=CODEX_BRIDGE_TIMEOUT_MS=300000
 ExecStart=/usr/local/bin/node /opt/filmtechnews/scripts/codex-bridge.mjs
 Restart=on-failure
 RestartSec=10
-TimeoutStopSec=120
+TimeoutStopSec=330
 NoNewPrivileges=true
 PrivateTmp=true
 # Tencent currently runs systemd 219; strict and ReadWritePaths are unsupported.

@@ -7,13 +7,13 @@ import { closeDb, sql } from "@aihot/backend/db";
 import { upsertMaterial } from "@aihot/backend/content/materials";
 import { stopBoss } from "@aihot/backend/jobs/queue";
 import { publishArticle, publishArticleTx } from "@aihot/backend/publication/publish";
-import { candidates, composeDaily } from "@aihot/backend/reports/compose";
+import { candidates, composeDaily, composeWeekly, composeMonthly } from "@aihot/backend/reports/compose";
 
 const T = tag();
 const SOURCE = `test-report-boundary-${T}`;
 const provider = await stub((hit) => ({
   id: `report-boundary-${T}-${hit}`,
-  choices: [{ message: { content: JSON.stringify({ title: "测试导语", leadParagraph: "测试摘要", highlights: [1] }) } }],
+  choices: [{ message: { content: JSON.stringify({ title: "测试导语", leadParagraph: "测试摘要", highlights: [1], headline: "历史汇编", overview: "实际已取得材料的阶段汇总", themes: [{ heading: "技术进展", summary: "来源日期归档", refs: [1] }] }) } }],
   usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
 }));
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
@@ -23,7 +23,36 @@ before(async () => {
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at)
             VALUES (${SOURCE}, 'Report boundary test', 'rss', 'T1', 'editorial', '2100-01-01')`;
 });
+
+test("historical weekly and monthly reports include backfills and respect an explicit cutoff", async () => {
+  const inside = await selected("period-archive", "2020-02-11T12:00:00Z", "2020-03-01T12:00:00Z");
+  const later = await selected("period-later", "2020-02-13T12:00:00Z", "2020-03-01T12:00:00Z");
+  const hidden = await selected("period-withdrawn", "2020-02-11T13:00:00Z", "2020-03-01T12:00:00Z");
+  await sql`UPDATE publications SET backfill=true WHERE article_id IN ${sql([inside,later,hidden])}`;
+  await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${hidden}`;
+  const asOf = new Date("2020-02-12T12:00:00Z");
+  await assert.rejects(composeWeekly("2020-W07", "invalid cutoff", { asOf }), /historical period/);
+  await composeWeekly("2020-W07");
+  await composeWeekly("2020-W07", "historical refresh", { historical:true,asOf });
+  await composeMonthly("2020-02", "historical refresh", { historical:true,asOf });
+  for (const kind of ["weekly","monthly"]) {
+    const [r] = await sql`SELECT id,revision,content,window_end FROM reports WHERE kind=${kind} AND key=${kind==="weekly"?"2020-W07":"2020-02"}`;
+    assert.ok(r!.content.storyOrder.includes(inside));
+    assert.ok(!r!.content.storyOrder.includes(later));
+    assert.ok(!r!.content.storyOrder.includes(hidden));
+    assert.equal(r!.window_end.toISOString(),asOf.toISOString());
+    assert.equal(r!.content.periodEnd,"2020-02-12");
+    assert.equal(r!.content.generator.attribution,"source-published-at");
+    assert.equal(r!.content.generator.asOf,asOf.toISOString());
+    if(kind==="weekly") {
+      assert.equal(r!.revision,2);
+      const [old] = await sql`SELECT content FROM report_revisions WHERE report_id=${r!.id} AND revision=1`;
+      assert.equal(old!.content.metrics.selectedCount,0);
+    }
+  }
+});
 after(async () => {
+  await sql`DELETE FROM reports WHERE (kind='weekly' AND key='2020-W07') OR (kind='monthly' AND key='2020-02')`;
   await sql`DELETE FROM reports WHERE kind = 'daily' AND key IN ('2020-01-02', '2020-01-03', '2020-01-04', '2020-01-05', '2020-02-02', '2020-02-03')`;
   await provider.close();
   await stopBoss();

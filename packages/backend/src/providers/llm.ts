@@ -194,7 +194,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
           method: "POST",
           headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
+          signal: AbortSignal.timeout(Math.max(opts.timeoutMs ?? 120_000, spec.service === "llm" ? config.llmTimeoutMs : 0)),
         });
       } catch (error) {
         if (isConnectFailure(error)) throw new ProviderRejectedError(`connect failed: ${String(error)}`, null, true);

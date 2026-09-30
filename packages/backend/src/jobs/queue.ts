@@ -60,7 +60,7 @@ export async function getBoss(): Promise<PgBoss> {
  */
 export const shutdownSignal = new AbortController();
 /** The longest single paid call (a translation batch, 180 s) plus margin; systemd waits longer. */
-export const STOP_TIMEOUT_MS = 195_000;
+export const STOP_TIMEOUT_MS = Math.max(195_000, config.llmTimeoutMs + 15_000);
 
 export async function stopBoss(): Promise<void> {
   shutdownSignal.abort();

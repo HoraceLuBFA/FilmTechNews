@@ -3,6 +3,14 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+export class CodexOutcomeError extends Error {
+  constructor(reason, exitCode = null) {
+    super(`Codex outcome unknown (${reason}${exitCode === null ? '' : `: ${exitCode}`})`);
+    this.reason = reason;
+    this.exitCode = exitCode;
+  }
+}
+
 // Use the official CLI's managed login; never read, copy or implement OAuth tokens here.
 export async function codexCompletion(messages, { model, timeoutMs = 110_000, binary = 'codex' } = {}) {
   if (!model || !Array.isArray(messages) || messages.some(m => !['system', 'user'].includes(m.role) || typeof m.content !== 'string')) {
@@ -38,7 +46,7 @@ export async function codexCompletion(messages, { model, timeoutMs = 110_000, bi
       child.once('error', err => { clearTimeout(timer); reject(err); });
       child.once('close', code => {
         clearTimeout(timer);
-        if (timedOut || overflow || code !== 0) return reject(new Error(`Codex outcome unknown (${timedOut ? 'timeout' : overflow ? 'output limit' : `exit ${code}`})`));
+        if (timedOut || overflow || code !== 0) return reject(new CodexOutcomeError(timedOut ? 'timeout' : overflow ? 'output-limit' : 'exit', code));
         try {
           const events = stdout.trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
           const items = events.filter(e => e.type === 'item.completed').map(e => e.item);
@@ -47,7 +55,7 @@ export async function codexCompletion(messages, { model, timeoutMs = 110_000, bi
           const content = items.filter(i => i.type === 'agent_message').at(-1)?.text;
           if (done?.type !== 'turn.completed' || !content) throw new Error('Incomplete Codex response');
           resolve({ content, usage: done.usage ?? null });
-        } catch { reject(new Error('Codex outcome unknown (invalid or incomplete event stream)')); }
+        } catch { reject(new CodexOutcomeError('invalid-event-stream')); }
       });
       child.stdin.end(prompt);
     });
