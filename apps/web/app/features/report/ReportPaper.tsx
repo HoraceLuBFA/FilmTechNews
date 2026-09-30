@@ -29,32 +29,36 @@ function Masthead({ report, index }: { report: ReportDetail; index: ReportNaviga
   const mark = dateMark(report.kind, report.key);
   return (
     <header className="pt-5 lg:pt-0">
-      <div className="flex items-center justify-between gap-4 text-[12px] text-ink-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[12px] text-ink-4">
         <span className="num">{dateLine(report.kind, report.key)}</span>
         <span className="hidden tracking-[0.3em] @[640px]:inline">{MOTTO[report.kind]}</span>
         <span>{EDITION[report.kind]}</span>
       </div>
 
-      <div className="flex items-stretch justify-between gap-5 py-6 @[880px]:gap-10 @[880px]:py-8">
-        <div className="flex min-w-0 flex-col justify-center">
+      <div className="flex flex-col items-stretch justify-between gap-5 py-6 @[640px]:flex-row @[880px]:gap-10 @[880px]:py-8">
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
           <h1 id="report-start">
             <span className="sr-only">
               {withSubject(KIND_LABEL[report.kind])} · {dateLine(report.kind, report.key)}
             </span>
-            <Nameplate which={report.kind} className="block h-[54px] w-auto @[520px]:h-[74px] @[880px]:h-[98px] @[1040px]:h-[112px]" />
+            <Nameplate which={report.kind} className="block h-auto w-full max-w-[440px] @[880px]:max-w-[560px] @[1040px]:max-w-[640px]" />
           </h1>
           <p className="mt-3 text-[11.5px] tracking-[0.36em] text-ink-4 @[880px]:mt-4 @[880px]:text-[12.5px]">{SITE.name.toUpperCase()}</p>
         </div>
         {/* 报眼: the box beside the nameplate, as a Chinese daily sets it: the issue and the date in the
             nameplate's dots, and on wider paper the issue calendar beside them. */}
         <div className="flex shrink-0 items-stretch well rounded-panel">
-          <div className="flex w-[112px] flex-col items-center justify-center px-2 py-3 text-center @[880px]:w-[150px] @[880px]:py-4">
-            {issue && <span className="text-[11px] tracking-[0.2em] text-ink-4">第 {issue} 期</span>}
-            <Halftone seed={`${report.kind}-${report.key}-date`} className="num mt-2 whitespace-nowrap text-[44px] font-black leading-[0.95] tracking-[-0.04em] text-ink @[880px]:text-[64px]">
-              {mark.figure}
-            </Halftone>
-            <span className="mt-2 text-[11.5px] text-ink-2">{mark.top}</span>
-            <span className="text-[11.5px] text-ink-4">{mark.bottom}</span>
+          <div className="flex w-full items-center justify-between gap-4 px-4 py-3 @[640px]:w-[112px] @[640px]:flex-col @[640px]:justify-center @[640px]:gap-0 @[640px]:px-2 @[640px]:text-center @[880px]:w-[150px] @[880px]:py-4">
+            <div className="flex items-center gap-3 @[640px]:flex-col @[640px]:gap-0">
+              {issue && <span className="whitespace-nowrap text-[11px] tracking-[0.2em] text-ink-4">第 {issue} 期</span>}
+              <Halftone seed={`${report.kind}-${report.key}-date`} className="num whitespace-nowrap text-[44px] font-black leading-[0.95] tracking-[-0.04em] text-ink @[640px]:mt-2 @[880px]:text-[64px]">
+                {mark.figure}
+              </Halftone>
+            </div>
+            <div className="shrink-0 text-right @[640px]:mt-2 @[640px]:text-center">
+              <div className="text-[11.5px] text-ink-2">{mark.top}</div>
+              <div className="text-[11.5px] text-ink-4">{mark.bottom}</div>
+            </div>
           </div>
           <IssueDots kind={report.kind} reportKey={report.key} index={index} className="hidden w-[176px] border-l border-line px-4 py-4 @[760px]:block @[880px]:w-[196px]" />
         </div>
