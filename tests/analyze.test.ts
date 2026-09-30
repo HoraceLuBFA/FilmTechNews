@@ -42,6 +42,10 @@ const provider = await stub((_hit, req) => {
   const marker = MARKERS.find((m) => user.includes(m)) ?? "";
   requests.push({ step, marker, system, user, body });
   const answer = (content: unknown) => ({ id: `stub-${requests.length}`, model: "stub", choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) } }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } });
+  if (step === "prefilter" && system.includes("本次包含多篇独立材料")) {
+    const rows = JSON.parse(user);
+    return answer({ items: rows.map((r: { articleId: string; material: string }) => ({ articleId: r.articleId, label: r.material.includes("OFFTOPIC") ? "BLOCK" : "PASS", reason: "独立判定" })) });
+  }
   if (step === "prefilter") return answer({ label: marker === "OFFTOPIC" || marker === "BARE" ? "BLOCK" : marker === "VAGUE" ? "UNKNOWN" : "PASS", reason: "测试" });
   if (step === "score") return answer({ attentionScore: scoreAnswers[marker]!.shift() });
   if (step === "understand") {
@@ -250,6 +254,29 @@ test("source policies prefilter before extraction, preserve feed-only boundaries
   assert.equal(result!.output!.relevance, "pass");
   assert.equal(result!.output!.score, 90);
   assert.equal(result!.output!.selected, false, "a high score alone cannot satisfy independent corroboration");
-  assert.match(result!.output!.summaryZh, /仅依据公开 RSS/);
+  assert.match(result!.output!.summaryZh, /仅依据公开标题与摘要/);
   await sql`UPDATE sources SET config='{}'::jsonb WHERE id=${SOURCE}`;
+});
+
+
+test("historical batch relevance shares one paid receipt and is bound to exact article revisions", async () => {
+  const { prefilterHistoricalBatch } = await import("@aihot/backend/editorial/historical-prefilter");
+  const off = await article("OFFTOPIC", { url: `https://example.com/batch-off-${T}` });
+  const pass = await article("CLEAR", { url: `https://example.com/batch-pass-${T}`, title: `CLEAR unique batch article ${T}`, bodyText: `${LONG} unique batch article ${T}` });
+  const before = provider.hits();
+  const batch = await prefilterHistoricalBatch([off, pass]);
+  assert.equal(provider.hits()-before, 1);
+  assert.equal(batch.get(off)!.result.receiptId, batch.get(pass)!.result.receiptId);
+  assert.equal(batch.get(off)!.result.label, "BLOCK");
+  assert.equal(batch.get(pass)!.result.label, "PASS");
+  await assert.rejects(analyzeArticle(off, {historicalPrefilter:{...batch.get(off)!,revision:999}}), /does not match/);
+  const blocked=await analyzeArticle(off, {historicalPrefilter:batch.get(off)});
+  assert.equal(blocked!.output!.relevance,"block");
+  assert.equal(provider.hits()-before,1,"blocked material needs no per-article paid call");
+  scoreAnswers.CLEAR=[80,80];
+  const selected=await analyzeArticle(pass,{historicalPrefilter:batch.get(pass)});
+  assert.equal(selected!.output!.selected,true,"batch relevance never replaces normal scores and writing");
+  assert.equal(provider.hits()-before,5);
+  assert.ok(selected!.receiptIds.includes(batch.get(pass)!.result.receiptId));
+  await assert.rejects(prefilterHistoricalBatch([off,off]),/unique articles/);
 });

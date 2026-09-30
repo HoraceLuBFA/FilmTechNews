@@ -63,3 +63,18 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.horace.filmtechnews.
 Nginx 专用配置为 `/usr/local/nginx/conf/vhost/filmtech.lumenghe.com.conf`，加载前必须 `/usr/local/nginx/sbin/nginx -t -c /usr/local/nginx/conf/nginx.conf`，然后 reload。证书沿用现有续期链路，需随主机正常维护。专用访问日志关闭，应用容器日志每份最大 10 MB，最多保留 3 份；无访客统计。后台密码在本机 `.data/tencent/access.txt` 与服务器 `.env`，不在聊天或 Git 输出。
 
 服务器同时存在 RPM Nginx 和 /usr/local 安装版。实际 systemd nginx 使用后者；不得仅用 PATH 中 nginx 检查另一套配置。首次发布已发现并纠正此差异，错误落在未使用目录的本任务配置已移走备份。
+
+
+## 2026-09-30 全源历史补跑进行中
+
+用户授权本次临时提高项目模型预算，补齐 9 月 23 日至 9 月 30 日日报对应的来源信息。范围冻结为 2026-09-22T00:00:00Z 至 2026-09-30T03:05:00Z，前一天材料用于 23 日的固定 08:00 日报窗口。30 日 08:00 后发布的材料进入公开列表及下一期，不改变日报窗口或原始发布时间。公开全文仍关闭，模型仍为腾讯云自己的 Codex gpt-5.6-sol / medium，原入选门槛保持不变。
+
+历史发现累计 2,288 条候选材料，32 个来源中 31 个完成公开列表的日期回溯，CineMontage 的 403 单独记录，不绕过限制。除常规 RSS 页码外，本次临时适配 CG Channel 新闻归档页、Production Expert RSS offset、C21Media 公开 REST 标题和摘要、RedShark 19 个导航分类 RSS。适配仅用于本次维护，不覆盖来源目录；列表回溯完成不代表每篇正文都可访问。
+
+私有恢复入口为服务器 `.data/full-backfill-20260930/` 和共享数据卷 `/data/all-source-history-20260930/`，原始材料、文章 URL 清单、数据库备份、预算前值和日志不提交。维护由 `filmtech-full-backfill-20260930.service` 脱离 SSH 运行，容器 `filmtech-full-backfill-20260930`；操作前必须核对这两个句柄的实际状态，不能因观察超时重复启动。正常 worker 暂停并排空后再备份数据库；维护退出时尝试恢复原预算并重新启动 worker，最终仍须现场确认恢复成功。
+
+`scripts/discover-filmtech-history.ts` 只发现和保存清单；`scripts/backfill-filmtech-all.ts` 默认只预览，明确 `--apply` 才导入并分析。所有导入通过共享材料入口保留身份和修订。每批最多 8 篇仅进行相关性预筛，逐篇继续正常双评分、详细摘要和发布，批量回执必须与文章 ID 和当前修订匹配，正文补齐后重新判断新修订。全部通过现有付费回执和临时预算，不绕开真实账户限额。历史日报保留旧修订，依据原始发布时间重建，并通过实际模型回执做严格同事件去重。若文章分析失败，任务记录文章 ID 后停止在最终日报重建之前，先查回执和日志解决失败，不伪称完成。
+
+本地验证已通过 148 项后端与桥接测试、16 项前端测试、类型检查和前端构建；服务器新镜像构建和只读清单预览通过，数据库已备份。实际全量文章分析、最终日报重建、预算与 worker 恢复、公开页面验收尚在进行。
+
+导入核对已将 C21Media 81 个相对 URL 规范为同域绝对地址，文章 ID 不变、尚未分析，修复前记录保存在私有数据卷。2,288 个清单 URL 均已在数据库找到对应身份，无导入缺项。

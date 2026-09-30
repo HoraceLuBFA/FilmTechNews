@@ -181,7 +181,16 @@ export function waitsForPage(a: AnalyzeInputArticle): boolean {
   return a.source.bodyPolicy !== "feed_only" && a.bodyStatus === "pending" && !a.bodyText && !a.xPost && pageFetchable(a.url, a.source.kind);
 }
 
-type StepOpts = { attemptTag?: string; scoreModel?: string };
+type StepOpts = { attemptTag?: string; scoreModel?: string;
+  /** Operator-only batch prefilter; bound to the exact article revision. */
+  historicalPrefilter?: { articleId: string; revision: number; result: AnalysisRun["prefilter"] };
+};
+function historicalPrefilter(a: AnalyzeInputArticle, opts: StepOpts): AnalysisRun["prefilter"] | null {
+  const batch=opts.historicalPrefilter;
+  if (!batch) return null;
+  if (batch.articleId!==a.id || batch.revision!==a.revision) throw Error("Historical prefilter does not match the article revision");
+  return { ...batch.result, label: batch.result.label === "BLOCK" && missingEvidence(a) ? "UNKNOWN" : batch.result.label };
+}
 export class AnalysisInterruptedError extends Error {}
 
 function checkAnalysisRunning() {
@@ -339,7 +348,7 @@ export async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Prom
  */
 export async function runAnalysis(a: AnalyzeInputArticle, opts: StepOpts & { stages?: "selection" | "all" } = {}): Promise<AnalysisRun> {
   checkAnalysisRunning();
-  const prefilter = await runPrefilter(a, opts);
+  const prefilter = historicalPrefilter(a, opts) ?? await runPrefilter(a, opts);
   // UNKNOWN is let through (its material is as complete as it will get); BLOCK stops here.
   if (prefilter.label === "BLOCK") return { prefilter, scores: null, writing: null, structure: null };
   const threshold = tierThreshold(a.source.tier);
@@ -422,7 +431,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
   if (!input) return null;
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
   if (waitsForPage(input)) {
-    const early = input.source.bodyPolicy === "prefilter_first" ? await runPrefilter(input, opts) : null;
+    const early = input.source.bodyPolicy === "prefilter_first" ? historicalPrefilter(input, opts) ?? await runPrefilter(input, opts) : null;
     if (!early || early.label !== "BLOCK") {
       if (early) await completeReceipt(sql, early.receiptId);
       return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: early ? [early.receiptId] : [], reused: early?.reused ?? true };
@@ -438,7 +447,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
     out.reasonZh = "来源线索需官方或独立专业报道交叉印证后纳入精选";
   }
   if (out.relevance === "pass" && out.summaryZh && input.source.bodyPolicy === "feed_only") {
-    out.summaryZh = `综合产业媒体线索，仅依据公开 RSS 标题与摘要，未读取付费正文。\n\n${out.summaryZh}`;
+    out.summaryZh = `综合产业媒体线索，仅依据公开标题与摘要，未读取付费正文。\n\n${out.summaryZh}`;
   } else if (out.relevance === "pass" && out.summaryZh && input.source.requiresCorroboration) {
     out.summaryZh = `以下为该来源的报道，尚未经独立专业来源交叉印证。\n\n${out.summaryZh}`;
   }
