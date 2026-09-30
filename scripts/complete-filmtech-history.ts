@@ -18,7 +18,7 @@ import {completeReceipt,ProviderRejectedError} from '@aihot/backend/providers/re
 import {updateBudget} from '@aihot/backend/admin/settings';
 import {autoReleaseUnknownReceipts} from '@aihot/backend/admin/runs';
 import {sha256} from '@aihot/backend/lib/ids';
-import {stopBoss} from '@aihot/backend/jobs/queue';
+import {stopBoss,shutdownSignal} from '@aihot/backend/jobs/queue';
 import {addDays,beijingDate,isoWeekLabel} from '@aihot/contracts/time';
 
 const directory=path.join(config.dataDir,'history-completion-20260930');
@@ -28,6 +28,8 @@ const actor='codex:history-completion';
 const start=new Date('2026-09-22T00:00:00Z');
 const cutoff=new Date(process.argv[2]??'');
 const settled=['analyzed','blocked','skipped'];
+let interrupted=false;
+for(const signal of ['SIGTERM','SIGINT'])process.once(signal,()=>{interrupted=true;shutdownSignal.abort();});
 const log=(data:unknown)=>console.log(JSON.stringify({at:new Date().toISOString(),data}));
 async function save(name:string,value:unknown){const file=path.join(directory,name);await writeFile(file+'.tmp',JSON.stringify(value,null,2),{mode:0o600});await rename(file+'.tmp',file);}
 async function restore(){
@@ -52,7 +54,7 @@ async function processArticle(id:string,batch?:Batch){
   if(result?.needsBody){await extractArticleBody(id,false);result=await analyzeArticle(id);}
   if(!result?.output||result.stale)throw Error('Article not ready');
   await publishArticle(id);log({status:'analyzed',articleId:id,relevance:result.output.relevance,selected:result.output.selected,receiptIds:result.receiptIds});
- }catch(error){if(error instanceof ProviderRejectedError && error.status===429)throw error;log({status:'article-deferred',articleId:id,error:String(error)});}
+ }catch(error){if(interrupted||error instanceof ProviderRejectedError && error.status===429)throw error;log({status:'article-deferred',articleId:id,error:String(error)});}
 }
 async function makeJobs(rows:Awaited<ReturnType<typeof pending>>):Promise<Job[]>{
  const jobs:Job[]=[];let ids:string[]=[];let bytes=0;
@@ -107,8 +109,7 @@ try{
    try{
     const [original]=await sql`SELECT * FROM budgets WHERE service='llm'`;
     if(!original||original.note===marker)throw Error('Restore earlier maintenance budget first');
-    await save('budget-before.json',original);
-    await save('reports-before.json',await sql`SELECT * FROM reports WHERE key>='2026-09-01'`);
+    if(!process.argv.includes('--resume')){await save('budget-before.json',original);await save('reports-before.json',await sql`SELECT * FROM reports WHERE key>='2026-09-01'`);}
     const sources=await sql`SELECT id FROM sources WHERE participation_mode='editorial' ORDER BY id`;const imports=[];
     for(const s of sources){const d=JSON.parse(await readFile(path.join(config.dataDir,'all-source-history-20260930',s.id+'.json'),'utf8'));let created=0,revised=0;
      if(d.start!==start.toISOString().replace('.000Z','Z')||Date.parse(d.end)<+cutoff)throw Error('Discovery cutoff mismatch');
@@ -120,17 +121,21 @@ try{
     const allowance=usage!.n+initial.length*10+300;
     await updateBudget('llm',{perMinute:Math.max(original.per_minute,30),perHour:Math.max(original.per_hour,allowance),perDay:Math.max(original.per_day,allowance),reason:marker},actor);raised=true;
     await unknownGate();
-    const jobs:Job[]=[];
-    for(const rows of [initial.filter(a=>a.group!=='C'),initial.filter(a=>a.group==='C')])jobs.push(...await makeJobs(rows));
-    await save('jobs.json',jobs);log({status:'analyzing',pending:initial.length,batches:jobs.length,prefilterConcurrency:4,articleConcurrency:1});
+    const jobs:Job[]=process.argv.includes('--resume')?JSON.parse(await readFile(path.join(directory,'jobs.json'),'utf8')):[];
+    if(!jobs.length)for(const rows of [initial.filter(a=>a.group!=='C'),initial.filter(a=>a.group==='C')])jobs.push(...await makeJobs(rows));
+    const assigned=new Set(jobs.flatMap(j=>j.ids));jobs.push(...await makeJobs(initial.filter(a=>!assigned.has(a.id))));
+    await save('jobs.json',jobs);log({status:'analyzing',pending:initial.length,batches:jobs.length,prefilterConcurrency:4,articleConcurrency:2});
     for(let round=1;round<=3;round++){
      log({status:'round-start',round});
      for(let offset=0;offset<jobs.length;offset+=4){
+      if(interrupted)throw Error('Operator stopped after draining paid calls');
       const wave=jobs.slice(offset,offset+4);
       const active=await pending();const activeIds=new Set(active.map(a=>a.id));
       const results=await Promise.allSettled(wave.map(j=>j.ids.some(id=>activeIds.has(id))?prefilter(j):Promise.resolve(null)));
       await save('jobs.json',jobs);
-      for(let i=0;i<results.length;i++){const r=results[i]!;if(r.status==='rejected')throw r.reason;if(r.value)for(const id of wave[i]!.ids)await processArticle(id,r.value);}
+      const work:Array<{id:string;batch:Batch}>=[];
+      for(let i=0;i<results.length;i++){const r=results[i]!;if(r.status==='rejected')throw r.reason;if(r.value)for(const id of wave[i]!.ids)work.push({id,batch:r.value});}
+      for(let i=0;i<work.length;i+=2){if(interrupted)throw Error('Operator stopped after draining paid calls');const done=await Promise.allSettled(work.slice(i,i+2).map(a=>processArticle(a.id,a.batch)));for(const r of done)if(r.status==='rejected')throw r.reason;}
       log({status:'progress',round,batchOffset:offset,remaining:(await pending()).length});
      }
      if(!(await pending()).length)break;

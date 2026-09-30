@@ -124,3 +124,7 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 服务器独立单元 `filmtech-full-finish-20260930.service` 和 `filmtech-full-finish-audit-20260930.service` 已启动，私有恢复目录 `.data/full-finish-20260930/` 保存 `cutoff`、`database-before.dump`、`maintenance.log`、`discovery.log`、`build.log`、`restore.log`、`exit-code`、`audit.log`、`final-cloud.json`；数据卷 `/data/history-completion-20260930/` 保存预算、旧报刊、导入清单、批次结果和 completed.json。上一阶段文件与备份保持原样。常规 worker 在本次维护期间停止，退出后恢复原预算和常规 worker；收尾检查只在主任务退出码 0 后执行，最终公开网页验收仍待完成。
 
 上线前验证通过类型检查、149 项空库后端与桥接测试、18 项前端测试、前端构建及本地烟雾检查。测试中的历史周报/月报验证补录纳入、截止边界、撤稿排除和旧修订保留，未访问外部模型服务。
+
+来源刷新并集合共 2,380 个 URL，冻结时刻为 2026-09-30T11:49:52Z（北京时间 19:49:52），通过共享入口新增 27、修订 19 篇。首次收尾入口使用四批并行预筛、单篇串行写作。实际观察写作耗时后，采用临时数据库屏障等待所有在途模型结果返回，现场确认桥接 active=0 且维护事务等待屏障，再停止该入口；收到的模型回答保存在回执，屏障释放，未造成新的未知结果。该人为切换的旧退出状态不能解释为最终任务失败或完成。
+
+当前入口替换为 `filmtech-full-finish-parallel-20260930.service` 与 `filmtech-full-finish-parallel-audit-20260930.service`，日志 `parallel.log`、`parallel-build.log`、`parallel-restore.log`、`parallel-audit.log`，终态 `parallel-exit-code`、`final-cloud.json`。新增 `--resume` 复用来源冻结清单、旧预算快照和已保存批次，按文章当前修订跳过已完成结果；两篇文章并行，每篇评分仍独立进行，最多四个模型请求在途。新的退出处理在收到终止信号后等待当前付费请求返回，保存已有结果再退出。后续定时生成同一期周报/月报会保留其已修复的来源日期归档方式，防止自动更新再次丢掉历史补录；六项报刊边界测试通过。屏障最迟十分钟自行释放，私有 `barrier.log` 和本机安全停止核对记录保存实际现场证据。
