@@ -7,4 +7,8 @@ test("summary presentation removes acquisition notes and keeps reporting facts a
   assert.equal(cleanReaderSummary(`综合产业媒体线索，仅依据公开 RSS 标题与摘要，未读取付费正文。\n\n${facts}\n\n现有正文在发言开头处截断，且可能仅为来源摘要，因此无法确认更多细节。`), facts);
   assert.equal(cleanReaderSummary("原文称，法案仍须通过立法程序；现有材料仅包含标题和简短导语，未提供更多细节。"), "原文称，法案仍须通过立法程序。");
   assert.equal(cleanReaderSummary("由于材料完整性未确认，以上仅依据现有来源摘要整理，未涵盖更多细节。\n\n" + facts), facts);
+  assert.equal(cleanReaderSummary(facts + "\n\n以上仅依据公开RSS标题与摘要整理，"), facts);
+  assert.equal(cleanReaderSummary(facts + "以上仅依据公开 RSS 标题与摘要整理，"), facts);
+  assert.equal(cleanReaderSummary(facts + "\n\n现有材料仅为截断的来源摘要，"), facts);
+  assert.equal(cleanReaderSummary(facts + "本文仅取得公开RSS摘要，未抓取付费正文，相关内容也尚未经独立来源交叉印证。"), facts);
 });

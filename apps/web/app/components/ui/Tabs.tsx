@@ -49,10 +49,11 @@ export interface TabItem {
 }
 
 const SIZES = {
-  md: "h-9 px-4 text-[14px]",
-  sm: "h-8 px-3.5 text-[13px]",
-  xs: "h-7 px-3 text-[12.5px]",
+  md: "h-9 text-[14px]",
+  sm: "h-8 text-[13px]",
+  xs: "h-7 text-[12.5px]",
 } as const;
+const PADDING = { md: "px-4", sm: "px-3.5", xs: "px-3" } as const;
 
 /**
  * The site's one switch control: a grey pill track with a white thumb that glides to the chosen
@@ -61,7 +62,7 @@ const SIZES = {
  * options evenly across the available width.
  */
 export function PillTabs({
-  items, active, onSelect, layoutId, size = "md", label, fill = false, className = "",
+  items, active, onSelect, layoutId, size = "md", label, fill = false, compact = false, className = "",
 }: {
   items: TabItem[];
   active: string;
@@ -71,6 +72,7 @@ export function PillTabs({
   size?: keyof typeof SIZES;
   label?: string;
   fill?: boolean;
+  compact?: boolean;
   className?: string;
 }) {
   const links = items.some((t) => t.to);
@@ -81,7 +83,7 @@ export function PillTabs({
         data-pill-track=""
         aria-label={label}
         role={links ? undefined : "tablist"}
-        className={`${fill ? "grid w-full" : "inline-flex w-max"} gap-0.5 rounded-full bg-bg-sunk p-[3px] ring-1 ring-inset ring-line-soft dark:bg-bg-muted/60`}
+        className={`${fill ? "grid w-full" : "inline-flex w-max"} ${compact ? "gap-px" : "gap-0.5"} rounded-full bg-bg-sunk p-[3px] ring-1 ring-inset ring-line-soft dark:bg-bg-muted/60`}
         style={fill ? { gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` } : undefined}
       >
         {items.map((t) => {
@@ -95,7 +97,7 @@ export function PillTabs({
               </span>
             </>
           );
-          const cls = `relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-full font-medium outline-offset-1 transition-colors duration-150 active:scale-[0.98] ${SIZES[size]} ${on ? "text-ink" : "text-ink-3 hover:text-ink"}`;
+          const cls = `relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-full font-medium outline-offset-1 transition-colors duration-150 active:scale-[0.98] ${SIZES[size]} ${compact ? "px-3" : PADDING[size]} ${on ? "text-ink" : "text-ink-3 hover:text-ink"}`;
           const TabLink = t.prefetch === "intent" ? IntentLink : Link;
           return t.to ? (
             <TabLink key={t.key} to={t.to} replace={t.replace} preventScrollReset aria-current={on ? "page" : undefined} className={cls}>

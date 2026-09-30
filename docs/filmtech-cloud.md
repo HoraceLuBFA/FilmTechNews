@@ -175,3 +175,14 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 发现入口的初始新增/修订材料实际为 60 条。为缩短逐篇预筛的等待，向维护容器发送协作式 TERM；它完成当前文章及真实付费请求后才退出，日志明确记录 `Maintenance interrupted after pending model calls drained`，原预算和 worker 的恢复随其结束执行。此人为切换退出码 1 保留，不能解释为文章分析失败。先行通过共享发布入口清理 686 条公开摘要投影，其中 167 条有变化，原摘要投影备份至 `discovery-refresh/summary-projection-before.json`，原分析未改写。
 
 当前权威入口更新为 `filmtech-discovery-refresh-pool-20261001.service`，私有脚本 `refresh-discovery-pool.mjs`、`run-discovery-pool.sh`，日志 `discovery-pool.log`、`discovery-pool-restore.log`，终态 `discovery-pool-exit-code`。它等待旧入口排空结束，复用完成结果；两名消费者各自按最多八篇、最多 90KB 的输入批量预筛，再逐篇执行原有双评分、摘要和结构抽取，最多四个模型请求在途，桥接上限仍为四。批量结果绑定文章 ID 和修订并保存回执；归组仍严格串行，以免并行创建重复事件。数据卷检查点另存 `discovery-refresh-pool/`，不覆盖旧入口。严格数据库与公网验收仍保存至 `final-discovery-cloud.json`、`final-discovery-public.json`，自动到期预算仅在这两项通过后开启。代码 `49c0472` 已推送，API/web 最后镜像包含主题公开释放计数修正，补充统计回归测试通过。
+
+补充的摘要清理代码 `4bce328` 已进入 API/web 镜像，保留“仍需验证”“未披露测试条件”等实质性限制，仅去除固定取材说明及其历史变体。维护容器继续使用启动时镜像，不能为刷新文案中断在途模型调用。独立 `filmtech-reader-final-20261001.service` 已等待上述维护单元；成功后以最新镜像通过共享发布入口再清理摘要投影，备份至数据卷 `discovery-refresh-pool/summary-projection-before-final.json`，保存 `final-reader-projection.json`、`final-reader-cloud.json`、`final-reader-public.json`、`final-reader-public.log` 与 `reader-final-exit-code`。它不调用模型，数据库预算检查明确采用用户已确认的临时余量状态，之前恢复原预算时取得的严格快照仍单独保留。
+
+本地追加验证为 154 项空库后端与桥接测试、18 项前端测试、类型检查和构建通过。实际浏览器验证全部 32 张卡片数量与主站/来源文章链接一致，点击 Variety 来源文章按钮进入对应页面，再点击下一页进入 page=2，手机无横向溢出；来源标识实际加载后的 360/390/1440 像素深浅色检查通过。最终来源分页、摘要残留、发现栏目和报刊浏览器检查仍在收尾清单内，不能用已通过的结构检查代替最终内容验收。
+
+
+## 2026-10-01 公开阅读层最终核对
+
+历史收尾及报刊生成已成功结束，截止范围仍为 2026-09-30 19:49:52 北京时间。最终快照为 2461 篇原始材料全部进入终态，706 篇公开动态；32 个来源的全部分页、来源归属和数量一致，公开摘要已清理抓取过程说明。11 期报刊及其 42 篇唯一引用文章均可实际访问，引用摘要与详情一致。热点按事件重排，48 个主题中 19 个已有内容。私有验收入口为服务器 `.data/full-finish-20260930/final-reader-end-cloud.json`、`final-reader-end-public.json`、`final-source-readers.json`；旧运行日志保留。
+
+左侧导航已改为“全部动态”，分类标签左右各 12px、间隙 1px；桌面 12 个标签均能容纳，手机保持横向滚动。1440px、390px、360px 实际浏览器渲染通过，日报周报月报无重叠或横向溢出。154 项后端与桥接测试、18 项前端测试、类型检查、前端构建及公网 30 项 smoke 通过。常规 worker 和 Codex 桥接运行；自动到期预算余量生效，原维护批次的到期时间为北京时间 10 月 2 日 01:31:29。上述计数为本次核对快照，后续采集和编辑调整会改变数量。
