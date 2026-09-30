@@ -90,3 +90,51 @@ A/B/C 为来源用途，不替代 T1/T2 身份评级。A 10 个、B 11 个、C 9
 robots.txt 探测结果、RSS 原始响应和项目读取器样本保存在本地 `.data/source-audit/`，不公开转载正文。不绕过 403；四个在 Python 探测成功但项目读取失败的来源暂缓接入。未检查站点的所有文章，首条样本不代表整站内容质量或全文可用率。
 
 本轮已写入 14 个通过项目读取器的来源配置，其中 13 个启用。低频来源保留原始时间，不把旧文章伪装成当日新闻。
+
+
+## 2026-09-30 读者信息来源目录
+
+新增公开页面 `/source-directory`，桌面主导航位于“收藏”下方，手机从“更多”进入。页面覆盖抓取目录中的 32 个来源，按摄影与现场制作、视效动画与创意、剪辑色彩与声音、媒体工程与影院、产业与制作研究五组展示。这里呈现本站关注的来源范围，包括暂时无法采集的 CineMontage，不将目录数量表述为正在正常采集的数量。卡片只包含网站标识、名称、内容特色、完整主站 URL 和外部访问按钮，不传递 A/B/C 用途、T1/T2 身份、评分、抓取策略或运行状态。
+
+读者文案与主站地址维护于 `industry/source-directory.ts`，行业抓取配置继续由 `industry/sources.json` 管理。前端测试核对两份目录的来源 ID 一一对应，并检查主站 HTTPS 地址及每个本地标识文件存在；新增或删除订阅来源时必须同步维护公开目录。页面沿用站点字体、卡片、圆角、配色及内联线性 SVG 图标，手机单列、平板两列、桌面三至四列，保持名称和 URL 完整换行。
+
+标识打包在 `apps/web/public/source-logos/`，32 个文件合计约 244 KiB，读者浏览时均由本站提供，不依赖第三方图标服务。29 个从各站公开声明的图标地址取得，Animation Magazine 从服务器读取其官方 favicon，Mix Online 提取主站页眉原有 SVG。British Cinematographer 的官方 RSS 指向 `cropped-BC2-32x32.png`，直取返回 403，本次在开发阶段从公开图标缓存取得 128 像素标识并保存本地；这不是读者页面的外部请求。以下记录取得地址，便于后续更换或追溯。
+
+| 来源 | 标识取得地址 |
+| --- | --- |
+| CineD | https://www.cined.com/content/themes/cinemad/assets/images/favicons/apple-icon-180x180.png?v=1.2 |
+| Newsshooter | https://www.newsshooter.com/wp-content/uploads/2015/11/cropped-newsshooter-sitelogo.png |
+| Film and Digital Times | https://www.fdtimes.com/favicon.ico |
+| British Cinematographer | https://www.google.com/s2/favicons?domain=britishcinematographer.co.uk&sz=128 |
+| Y.M.Cinema | https://ymcinema.com/wp-content/uploads/2018/07/cropped-Company-Logo-180x180.png |
+| The Art of VFX | https://www.artofvfx.com/wp-content/uploads/2026/01/cropped-ArtofVFX_512_favicon-180x180.jpg |
+| befores & afters | https://i0.wp.com/beforesandafters.com/wp-content/uploads/2019/03/logo2.jpg?fit=180%2C167&ssl=1 |
+| fxguide | https://www.fxguide.com/wp-content/uploads/2026/08/cropped-fx-icon-180x180.png |
+| VFX Voice | https://vfxvoice.com/wp-content/uploads/2023/04/favicon.png |
+| CG Channel | https://www.cgchannel.com/wp-content/themes/bebop3/favicon.ico |
+| Animation Magazine | https://www.animationmagazine.net/favicon.ico |
+| Motionographer | https://s35726.pcdn.co/wp-content/themes/motionographer6.3/library/images/apple-icon-touch.png |
+| Cartoon Brew | https://www.cartoonbrew.com/wp-content/uploads/2018/03/cropped-cropped-favicon-3-180x180.png |
+| Academy Software Foundation | https://www.aswf.io/wp-content/uploads/sites/60/2018/08/cropped-favicon-180x180.png |
+| ProVideo Coalition | https://www.provideocoalition.com/wp-content/uploads/cropped-PVC_Logo_2020-180x180.jpg |
+| postPerspective | https://postperspective.com/wp-content/uploads/2023/07/favicon.png |
+| CineMontage | https://cinemontage.org/wp-content/uploads/2025/12/IA700Bug1.jpg |
+| Production Expert | https://static1.squarespace.com/static/54d696e5e4b05ca7b54cff5c/t/56d20907e32140b8a0bcb361/1456605447577/Pro+Tools+Expert+iOS+.png |
+| Mix Online | https://www.mixonline.com/ |
+| RedShark News | https://www.redsharknews.com/hubfs/rs-favicon.png |
+| TV Tech | https://cdn.mos.cms.futurecdn.net/flexiimages/2wcrzcjofb1613146505.png |
+| Digital Cinema Report | https://www.digitalcinemareport.com/wp-content/uploads/2025/02/cropped-DCR-CinemaCon-2-180x180.png |
+| Cinema Technology | https://static.wixstatic.com/media/8bda3b_b1668fa87d464d66bbc73f720edcbea1%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/8bda3b_b1668fa87d464d66bbc73f720edcbea1%7Emv2.png |
+| Advanced Television | https://www.advanced-television.com/wp-content/uploads/2020/07/cropped-favicon-180x180.png |
+| Filmmaker Magazine | https://filmmakermagazine.com/wp-content/themes/filmmaker/images/icons/apple-touch-icon-precomposed.png |
+| TheWrap | https://www.thewrap.com/wp-content/uploads/2024/05/the_wrap_symbol_black_bkg.png?width=300&height=300&fit=bounds |
+| Deadline | https://deadline.com/wp-content/themes/pmc-deadline-2019/assets/app/icons/apple-touch-icon.png |
+| Variety | https://variety.com/wp-content/themes/pmc-variety-2020/assets/app/icons/apple-touch-icon.png |
+| IndieWire | https://www.indiewire.com/wp-content/uploads/2018/04/cropped-iw_favicon.png?w=180 |
+| Stephen Follows | https://substackcdn.com/image/fetch/$s_!tNI5!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F89b1a4ef-5b42-4f80-a9d0-1814209276c2%2Fapple-touch-icon-180x180.png |
+| The Hollywood Reporter | https://www.hollywoodreporter.com/wp-content/uploads/2026/05/thr-site-icon.png?w=180 |
+| C21Media | https://cdn.c21media.net/wp-content/uploads/2017/11/cropped-transc21medialogo-180x180.png |
+
+本地验收：类型检查、生产构建及 18 项前端测试通过；浏览器实际渲染在 360/390 像素手机、768 像素平板及 1440 像素桌面深浅色下，32 个标识均加载，无横向溢出、标识与名称重叠，URL 显示与访问链接一致，桌面入口在收藏之后，手机“更多”正确选中。旧 `/sources` 继续作为后台来源管理书签跳转，公开目录使用独立 `/source-directory`，避免路由冲突。
+
+腾讯云上线验收完成：公网页面返回 200，32 个来源 ID 与配置对应，32 个本地标识均返回非空图片，手机更多入口与网站地图均包含公开目录。公网浏览器在 360/390/768/1440/1728 像素下检查，无横向溢出或标识与标题重叠，图片延迟加载完成后全部可见，深浅色主题正常；30 项站点烟雾检查通过。后端在新建空 `_test` 库通过 148 项测试，前端 18 项测试通过。

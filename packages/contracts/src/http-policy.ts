@@ -41,7 +41,7 @@ export interface RedirectRule {
 export const REDIRECTS: RedirectRule[] = [
   {
     match: "regex",
-    path: "^/(all|about|agent|changelog|codex-reset|feedback|starred|more|privacy|terms)/+$",
+    path: "^/(all|about|agent|changelog|codex-reset|feedback|starred|source-directory|more|privacy|terms)/+$",
     status: 301,
     location: "/$1",
     keepQuery: true,
