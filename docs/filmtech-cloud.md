@@ -144,3 +144,6 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 提前发布的十一期公网 API 均验证可访问、引用可打开；浏览器七种日报/周报/月报组合实际检查 360、390、1440 像素和深浅色，标题与日期卡无重叠、无横向溢出、桌面站名单行，手机周报与桌面月报截图已人工核看。现有四条 C21Media 摘要的固定取材说明从“公开 RSS 标题与摘要”校正为“公开标题与摘要”，其材料实际来自公开 REST，未更改模型生成正文、未调用额外模型，原说明备份至数据卷 `history-completion-20260930/c21-caption-completion-before.json`。初版提前发布私有入口曾在语法阶段失败，未调用模型，已修复并另存失败日志；它不影响正式收尾的运行状态。
 
 连续队列运行截至北京时间 21:16，数据库范围内共 2,385 篇，已处理 1,404 篇、剩余 981 篇，尚无新的未知结果或分析失败。切换期间常规采集新增两篇截止时间内材料并修订一篇，均纳入当前队列，不删材料。最终需要检查 `continuous-exit-code=0`、收尾 `final-cloud.json` 全部通过、公网报刊与实际网页、预算与 bridge/worker 恢复；这条过程记录不能作为全量完成证据。
+
+
+公网核对已加入独立 `filmtech-full-finish-public-audit-20260930.service`，私有入口 `run-public-audit.sh`、`audit-public-cloud.py`，等待连续队列与数据库收尾单元结束，只在主任务成功且 final-cloud.json verified=true 后，验证全部十一期公网 API 修订与内容、服务器生成 HTML、引用文章摘要和详情页，保存 `final-public.json`、`public-audit.log`。它不调用模型，独立于本机会话；正常采集和预算的最终恢复仍以主任务退出及数据库收尾证据为准。抽查 After Effects AI Assistant、Sony FX5 测试和 Mavis Camera 三篇公网摘要，分别为 837、1115、811 字，包含操作条件、测试数字或限制，详细摘要要求未因提速降低。
