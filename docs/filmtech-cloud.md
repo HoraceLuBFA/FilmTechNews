@@ -90,3 +90,19 @@ Nginx 专用配置为 `/usr/local/nginx/conf/vhost/filmtech.lumenghe.com.conf`�
 补充材料已真实完成：Variety 保持原文章 ID、修订更新为 2，尚待主任务按当前修订处理；Advanced Television 新建 1 篇，经 gpt-5.6-sol 实际预筛回执 1484 判为 block，未入选。补充单元退出码 0；前两次私有辅助入口在 SQL/模块载入阶段失败，未执行模型调用，改为项目目录中的明确文件入口并预览后完成，原失败日志保留。
 
 自动收尾核对入口为 `filmtech-full-backfill-final-audit-20260930`，私有日志 `.data/full-backfill-20260930/final-audit.log`。它等待主任务退出且退出码为 0 后，修正 C21Media 历史公开摘要中不准确的“RSS”限定词，通过共享发布入口刷新；不改模型生成正文、不新增模型调用。随后保存 `final-cloud.json` 与 `final-verification.json`，核对八期日报、待处理材料、公开释放时间、真实模型回执、原预算和 worker 恢复，任一检查不通过即保留失败状态，不宣称全量完成。若 api 容器在收尾前被重新创建，需从同一私有目录恢复其 `/app/scripts/filmtech-finalize-private.mjs` 与 `/app/scripts/filmtech-final-audit-private.mjs` 后再执行收尾。最终公开网页与移动端日报验收仍是后续恢复步骤。
+
+## 2026-09-30 本地会话关闭前的服务器交接
+
+现场检查发现首轮补跑已于北京时间 15:16 退出：最后完成计数为 379，下一批预筛回执 1573 的结果未知，八期日报尚未重建。退出处理已恢复原预算 10/100/300 和常规 worker，旧日志、首次数据库备份及退出码 1 均保留，原收尾检查按设计报失败。此状态替代上文首轮“进行中”的运行描述，不代表已完成全量任务。
+
+该回执超过 30 分钟后，使用现有 `autoReleaseUnknownReceipts` 自动放行一次，保留实际请求记录，不伪造计费或成功结果。已启动独立腾讯云服务 `filmtech-full-backfill-resume-20260930.service`，复用 2,289 个来源 URL 身份及已完成文章，导入核对新增、修订均为 0，剩余 1,812 篇进入当前修订分析；模型仍为 gpt-5.6-sol / medium。续跑前另存 `database-before-resume.dump`，数据卷另存 `checkpoint-before-resume.tar`，不覆盖第一次备份；运行时暂时提高项目预算，退出时恢复原预算并启动常规 worker。
+
+续跑与 `filmtech-full-backfill-resume-final-audit-20260930.service` 均由服务器 systemd 托管，无需本机 SSH 或当前聊天会话保持连接。本机关闭应用、休眠或断网不终止这两个单元；当前单元是 `/run/systemd/system` 下的临时服务，不承诺服务器重启后自动续跑。再次出现未知回执或分析失败时保留失败，不无限重试。成功退出后收尾检查才核对八期日报、回执、发布状态、原预算和 worker，最终网页验收仍需恢复会话后完成。
+
+恢复时先读取本节，再通过 `ssh tencent-cloud` 检查以下状态；不得只凭旧聊天描述重复启动任务。私有目录为 `/opt/filmtechnews/.data/full-backfill-20260930/`，入口为 `run-resume-cloud.sh` 与 `run-resume-final-audit.sh`，日志为 `resume.log`、`resume-restore.log`、`resume-final-audit.log`，终态为 `resume-exit-code`、`final-cloud.json`、`final-verification.json`。运行过程中 `resume-exit-code` 不存在是正常现象；出现退出码 0 仍须检查收尾结果，不能等同公开网页验收通过。
+
+```bash
+ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service filmtech-full-backfill-resume-final-audit-20260930.service --property=Id,ActiveState,MainPID,ExecMainStatus; tail -n 8 /opt/filmtechnews/.data/full-backfill-20260930/resume.log'
+```
+
+信息来源页面已独立完成上线和验收，访问 https://filmtech.lumenghe.com/source-directory 即可查看；历史新闻补跑的终态与页面功能交付分别检查。
