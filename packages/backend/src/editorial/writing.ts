@@ -88,6 +88,9 @@ function materialQuality(a: AnalyzeInputArticle): string {
 export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: boolean } = {}): string {
   const lines: string[] = [];
   lines.push(`【来源】${a.source.name}（${a.source.kind}，tier=${a.source.tier || "未分级"}）`);
+  if (a.source.editorialGroup) lines.push(`【来源用途】${a.source.editorialGroup === "C" ? "C：综合产业背景；必须有具体制作、技术或产业链关联，排除纯票房、片单、明星、收视率与体育转播" : a.source.editorialGroup === "A" ? "A：技术与制作主线" : "B：专业技术与放映线索"}`);
+  if (a.source.bodyPolicy === "feed_only") lines.push("【取材限制】仅依据公开RSS标题与摘要，未抓取付费正文；明确写为来源线索，不推断缺失细节。");
+  if (a.source.requiresCorroboration) lines.push("【核实限制】尚未经独立来源交叉印证，只能归因于该来源，不写成已核实结论。");
   if (a.source.tags?.length) lines.push(`【来源标签】${a.source.tags.join(", ")}`);
   const name = a.xPost?.authorName || a.author;
   const handle = a.xPost?.handle;

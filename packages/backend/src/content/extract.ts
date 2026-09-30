@@ -3,7 +3,7 @@
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { sql } from "../db.ts";
-import { guardedFetch } from "../lib/http-fetch.ts";
+import { BROWSER_UA, guardedFetch } from "../lib/http-fetch.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
@@ -68,9 +68,9 @@ function markdownToHtml(md: string): string {
     .join("");
 }
 
-export async function extractFromUrl(url: string, opts: { allowJina: boolean; subject: string }): Promise<ExtractedBody | null> {
+export async function extractFromUrl(url: string, opts: { allowJina: boolean; subject: string; browserUserAgent?: boolean }): Promise<ExtractedBody | null> {
   try {
-    const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024 });
+    const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, headers: opts.browserUserAgent ? { "user-agent": BROWSER_UA } : undefined });
     const type = res.headers.get("content-type") ?? "";
     if (res.status === 200 && /html/.test(type)) {
       const got = readable(res.text(), res.url);
@@ -105,11 +105,11 @@ export function pageFetchable(url: string, sourceKind: string): boolean {
 
 /** Fetches and stores the body of one article. Unconfirmed bodies are recorded as such. */
 export async function extractArticleBody(articleId: string, allowJina = process.env.JINA_BODY_FALLBACK !== "false"): Promise<"ok" | "unconfirmed" | "skipped"> {
-  const [a] = await sql<{ id: string; url: string; body_status: string; revision: number; x_post: { tweetId?: string } | null }[]>`
-    SELECT id, url, body_status, revision, x_post FROM articles WHERE id = ${articleId}`;
-  if (!a || a.body_status === "ok") return "skipped";
+  const [a] = await sql<{ id: string; url: string; body_status: string; revision: number; config: Record<string, unknown>; x_post: { tweetId?: string } | null }[]>`
+    SELECT a.id, a.url, a.body_status, a.revision, a.x_post, s.config FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
+  if (!a || a.body_status === "ok" || a.config.bodyPolicy === "feed_only") return "skipped";
   if (a.x_post?.tweetId) return extractXArticle(a.id, a.x_post.tweetId);
-  const got = await extractFromUrl(a.url, { allowJina, subject: `article:${a.id}` });
+  const got = await extractFromUrl(a.url, { allowJina, subject: `article:${a.id}`, browserUserAgent: a.config.browserUserAgent === true });
   if (!got) {
     await sql`UPDATE articles SET body_status = 'unconfirmed', updated_at = now() WHERE id = ${articleId} AND body_status <> 'ok'`;
     return "unconfirmed";

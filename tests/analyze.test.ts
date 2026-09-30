@@ -231,3 +231,25 @@ test("summary refresh preserves judgement, keeps evidence and respects manual ed
   assert.equal((await rewriteSummary(id)).status, "skipped");
   assert.equal(provider.hits(), before);
 });
+
+test("source policies prefilter before extraction, preserve feed-only boundaries and hold uncorroborated selection", async () => {
+  const { extractArticleBody } = await import("@aihot/backend/content/extract");
+  await sql`UPDATE sources SET config='{"bodyPolicy":"prefilter_first","editorialGroup":"C"}'::jsonb WHERE id=${SOURCE}`;
+  const off = await article("OFFTOPIC", { url: `https://example.com/policy-off-${T}`, bodyText: null, bodyStatus: "pending", excerpt: "Celebrity dating gossip with no production information" });
+  const blocked = await analyzeArticle(off);
+  assert.equal(blocked!.needsBody, undefined);
+  assert.equal(blocked!.output!.relevance, "block");
+  const pass = await article("VAGUE", { url: `https://example.com/policy-pass-${T}`, bodyText: null, bodyStatus: "pending", excerpt: "A technical camera workflow" });
+  assert.equal((await analyzeArticle(pass))!.needsBody, true);
+  await sql`UPDATE sources SET config='{"bodyPolicy":"feed_only","editorialGroup":"C","requiresCorroboration":true}'::jsonb WHERE id=${SOURCE}`;
+  scoreAnswers.CLEAR = [90, 90];
+  const clue = await article("CLEAR", { url: `https://example.com/policy-clue-${T}`, bodyText: null, bodyStatus: "pending", excerpt: "CLEAR company introduces an editing tool; public feed summary only" });
+  assert.equal(await extractArticleBody(clue), "skipped", "even direct extraction cannot fetch a protected source");
+  const result = await analyzeArticle(clue);
+  assert.equal(result!.needsBody, undefined);
+  assert.equal(result!.output!.relevance, "pass");
+  assert.equal(result!.output!.score, 90);
+  assert.equal(result!.output!.selected, false, "a high score alone cannot satisfy independent corroboration");
+  assert.match(result!.output!.summaryZh, /仅依据公开 RSS/);
+  await sql`UPDATE sources SET config='{}'::jsonb WHERE id=${SOURCE}`;
+});

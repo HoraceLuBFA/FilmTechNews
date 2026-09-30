@@ -50,7 +50,7 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.horace.filmtechnews.
 
 ## 配额与内容边界
 
-初始采集 13 个已验证来源，每站回填最多 3 条、最多 3 个月。Deadline 已配置但关闭。模型分析并发 1；`llm` 回执预算每分钟 10 次、每小时 100 次、每天 300 次，以数据库 budgets 为准。实际消耗的是 ChatGPT 账户额度，回执记录 token 用量，费用未知。所有外部推送关闭。
+来源目录已扩展为 OpenClaw 的 30 个来源及 2 个原有补充来源；CineMontage 因 403 暂停，CG Channel 改用当前网页列表。每站首次回填最多 3 条、最多 3 个月，Deadline 按 C 级严格相关性规则启用。模型分析并发 1；`llm` 回执预算每分钟 10 次、每小时 100 次、每天 300 次，以数据库 budgets 为准。实际消耗的是 ChatGPT 账户额度，回执记录 token 用量，费用未知。所有外部推送关闭。
 
 历史回填保留原始时间，进入归档，不混入新一期日报。日报窗口为北京时间前一天 08:00 至当天 08:00，首次上线可能尚无完整一期；不能为了填满日报更改文章时间。首次 6 篇生成样本和全文抓取记录在本机 `.data/verification`、`.data/source-audit`，不入 Git。
 

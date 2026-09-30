@@ -123,3 +123,18 @@
 最新代码已通过类型检查、144 项后端与桥接测试、16 项前端测试、生产构建，以及本地和公网各 30 项 smoke。证据位于私有目录 `.data/verification/historical-daily/`：`dedup-checks.log`、`final-cloud.json`、`final-public.json`、`final-public-smoke.log`、`final-browser.log` 和 final 截图。原始来源笔记未修改或提交，数据库、摘要及运行证据不入 Git。
 
 维护入口 `scripts/backfill-daily.ts` 默认只读预览，显式 `--apply --temporarily-raise-budget` 才执行；操作前暂停常规 worker，完成后恢复。此次运行日志、源码与数据库备份保存在服务器项目 `.data/historical-daily-20260930/`，包括 `run.log`、`exit-code` 和 `database-before.dump`。预算恢复入口为容器内 `node scripts/backfill-daily.ts --restore-budget`，按临时标记幂等恢复。续接时先检查服务器进程和日志，不重复启动存活任务；最终验收可复用本地 `audit-cloud.mjs` 与 `audit-public.py`，并等待 releasePending 为空。当前七期补刊已完成，无需重跑。
+
+
+## 2026-09-30 OpenClaw 30 源同步完成
+
+根据用户指定的桌面规则文档完成来源扩展：目录共 32 个来源，包含 OpenClaw 全部 30 个与原有 ASWF、Cinema Technology。腾讯云正式数据库新增 18 个来源，更新已有配置并保留文章、游标与来源 ID；当前启用 31 个。CineMontage 的公开 RSS 及备用入口均 403，保留配置、暂停采集。CG Channel 旧 RSS 重定向到 2024 年 FeedBurner，已改用 /category/news/ 列表，真实读取 19 条；首次定时抓取瞬时失败后受控复测成功、首次入库 3 条。Filmmaker Magazine 的 feed 最新仍为 7 月，保持陈旧来源标记说明，不把可解析当作新鲜。来源逐项结果见 filmtech-sources.md。
+
+新增 A/B/C 来源用途、正文不足先预筛后提取、1500 字符 RSS 正文判定、浏览器兼容 UA、网页列表摘要读取，以及 Variety/C21Media 的 feed_only 禁抓详情规则。C 级产业来源执行严格领域关联；Y.M.Cinema、Variety、C21Media 需独立证据后人工审计确认精选，当前未新增自动跨源事实核验器。原 T1/T2 身份、五轴评分和数值门槛、十个内容分类与 URL、站内全文关闭状态保持不变。RSS 长正文不截成 3000 字符，保留详细摘要所需材料。
+
+代码已部署到腾讯云共享镜像并重建 API/web/worker；只暂停和恢复本项目 worker，未更改主机代理、OAuth 或其他服务。本地预览也完成重启及配置同步，采集和模型安全阀保持关闭。服务器 bridge 实际健康返回 gpt-5.6-sol / medium，worker 心跳正常，原预算 10/100/300 未改变。最终生产审计显示 31 个启用来源全部 health=ok，32 个来源均关闭站内全文与全文 RSS，配置与目录逐项一致；约 09:48 的快照中新增批次 55 篇仍为 new，等待现有预算，不声称已完成新增稿件的模型摘要。
+
+验收：类型检查通过，隔离空库 147 项后端与桥接测试通过，16 项前端测试、生产构建、本地与公网各 30 项 smoke 通过。测试覆盖短 RSS 正文保留、feed_only 禁抓、预筛拦截后不补正文、PASS/UNKNOWN 请求正文、待交叉核实稿件不自动精选，以及 CG 风格列表日期/详情链接/摘要。目录同步脚本在隔离库完成实际写入与二次幂等执行；线上调用后台管理函数，审计 actor=codex:filmtech-source-sync。Digital Cinema Report 真实详情页直连 Readability 提取样本为 3354 字符。
+
+运行证据在本机私有 `.data/verification/source-expansion/`：reader-cloud.json、final-cloud.json、final-checks.log、typecheck.log、sync-test.log、public-smoke.log、local-final-smoke.log。服务器备份与构建、同步日志在 `.data/source-expansion-20260930/`，包含 source-before.tar.gz、database-before.dump、build.log、sync.log。恢复时先检查当前服务与来源修改，源码可从备份恢复；不要直接恢复整库覆盖上线后的文章或反馈。
+
+维护入口 `scripts/sync-filmtech-sources.ts` 默认预览，显式 --apply 才同步目录中的抓取配置、启用状态和周期，使用前先核对数据库差异、暂停 worker 并备份。seed.ts 继续保持只添加缺失来源。后续主要观察模型排队与 C 级筛选质量，来源增多不自动扩大额度；阈值校准仍须真实标注样本。

@@ -137,3 +137,13 @@ test("detail HTML supplies the ordinary extracted body once, while short pages k
   assert.equal(await extractArticleBody(full!.id, false), "skipped");
   assert.equal(pageReads.get(`/p/b-${T}`), 1, "known listings and extraction never download the same confirmed body again");
 });
+
+test("a dated CG-style listing keeps its real article URL and summary for prefiltering", async () => {
+  const { fromHtml } = await import("@aihot/backend/sources/web-list");
+  const [item] = fromHtml('<article class="boxout"><a class="boxout-headline" href="/2026/09/render-update/">Renderer update</a><p class="boxout-date">Tuesday, September 29th, 2026</p><p class="boxout-summary">OpenPBR and simulation improvements</p></article>', "https://example.org/", { config: {
+    itemSelector: "article.boxout", linkSelector: "a.boxout-headline", publishedAtSelector: ".boxout-date", publishedAtUtcOffset: "+00:00", summarySelector: ".boxout-summary",
+  } } as never);
+  assert.equal(item!.url, "https://example.org/2026/09/render-update/");
+  assert.equal(item!.publishedAt!.toISOString(), "2026-09-29T00:00:00.000Z");
+  assert.equal(item!.excerpt, "OpenPBR and simulation improvements");
+});

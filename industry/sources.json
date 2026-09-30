@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-09-29",
+  "exportedAt": "2026-09-30",
   "sources": [
     {
       "id": "cined",
@@ -10,7 +10,11 @@
         "_aihot": {
           "initialBackfillLimit": 3,
           "initialBackfillMonths": 3
-        }
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
       },
       "tier": "T2",
       "first_party": false,
@@ -23,162 +27,20 @@
       "enabled": true
     },
     {
-      "id": "newsshooter",
-      "name": "Newsshooter",
+      "id": "ymcinema",
+      "name": "Y.M.Cinema",
       "kind": "rss",
       "config": {
-        "feedUrl": "https://www.newsshooter.com/feed/",
+        "feedUrl": "https://ymcinema.com/feed/",
         "_aihot": {
           "initialBackfillLimit": 3,
           "initialBackfillMonths": 3
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
-      "tags": [],
-      "site_fulltext": false,
-      "syndicate_fulltext": false,
-      "enabled": true
-    },
-    {
-      "id": "fdtimes",
-      "name": "Film and Digital Times",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://www.fdtimes.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 3,
-          "initialBackfillMonths": 3
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [],
-      "site_fulltext": false,
-      "syndicate_fulltext": false,
-      "enabled": true
-    },
-    {
-      "id": "british-cinematographer",
-      "name": "British Cinematographer",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://britishcinematographer.co.uk/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 3,
-          "initialBackfillMonths": 3
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
-      "tags": [],
-      "site_fulltext": false,
-      "syndicate_fulltext": false,
-      "enabled": true
-    },
-    {
-      "id": "beforesandafters",
-      "name": "befores & afters",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://beforesandafters.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 3,
-          "initialBackfillMonths": 3
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
-      "tags": [],
-      "site_fulltext": false,
-      "syndicate_fulltext": false,
-      "enabled": true
-    },
-    {
-      "id": "fxguide",
-      "name": "fxguide",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://www.fxguide.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 3,
-          "initialBackfillMonths": 3
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [],
-      "site_fulltext": false,
-      "syndicate_fulltext": false,
-      "enabled": true
-    },
-    {
-      "id": "artofvfx",
-      "name": "The Art of VFX",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://www.artofvfx.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 3,
-          "initialBackfillMonths": 3
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
-      "tags": [],
-      "site_fulltext": false,
-      "syndicate_fulltext": false,
-      "enabled": true
-    },
-    {
-      "id": "vfxvoice",
-      "name": "VFX Voice",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://vfxvoice.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 3,
-          "initialBackfillMonths": 3
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
-      "tags": [],
-      "site_fulltext": false,
-      "syndicate_fulltext": false,
-      "enabled": true
-    },
-    {
-      "id": "postperspective",
-      "name": "postPerspective",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://postperspective.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 3,
-          "initialBackfillMonths": 3
-        }
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true,
+        "requiresCorroboration": true
       },
       "tier": "T2",
       "first_party": false,
@@ -199,7 +61,36 @@
         "_aihot": {
           "initialBackfillLimit": 3,
           "initialBackfillMonths": 3
-        }
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "beforesandafters",
+      "name": "befores & afters",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://beforesandafters.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
       },
       "tier": "T2",
       "first_party": false,
@@ -220,6 +111,289 @@
         "_aihot": {
           "initialBackfillLimit": 3,
           "initialBackfillMonths": 3
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "vfxvoice",
+      "name": "VFX Voice",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://vfxvoice.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "cinemontage",
+      "name": "CineMontage",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://cinemontage.org/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "production-expert",
+      "name": "Production Expert",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.production-expert.com/production-expert-1?format=rss",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "mixonline",
+      "name": "Mix Online",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.mixonline.com/feed",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "fdtimes",
+      "name": "Film and Digital Times",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.fdtimes.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "A",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "newsshooter",
+      "name": "Newsshooter",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.newsshooter.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 20,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "artofvfx",
+      "name": "The Art of VFX",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.artofvfx.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "postperspective",
+      "name": "postPerspective",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://postperspective.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "fxguide",
+      "name": "fxguide",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.fxguide.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "british-cinematographer",
+      "name": "British Cinematographer",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://britishcinematographer.co.uk/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "cgchannel",
+      "name": "CG Channel",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cgchannel.com/category/news/",
+        "itemSelector": "article.boxout",
+        "linkSelector": "a.boxout-headline",
+        "titleSelector": "a.boxout-headline",
+        "publishedAtSelector": ".boxout-date",
+        "publishedAtUtcOffset": "+00:00",
+        "summarySelector": ".boxout-summary",
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
         }
       },
       "tier": "T2",
@@ -227,6 +401,360 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "tvtech",
+      "name": "TV Tech",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.tvtechnology.com/feeds.xml",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "filmmaker",
+      "name": "Filmmaker Magazine",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://filmmakermagazine.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "animation-magazine",
+      "name": "Animation Magazine",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.animationmagazine.net/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "motionographer",
+      "name": "Motionographer",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://motionographer.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "digital-cinema-report",
+      "name": "Digital Cinema Report",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.digitalcinemareport.com/feed",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "B",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "thewrap",
+      "name": "TheWrap",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.thewrap.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "C",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true,
+        "summaryIsBody": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "deadline",
+      "name": "Deadline",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://deadline.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "C",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 20,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "variety",
+      "name": "Variety",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://variety.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "C",
+        "bodyPolicy": "feed_only",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true,
+        "requiresCorroboration": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 20,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "indiewire",
+      "name": "IndieWire",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.indiewire.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "C",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 20,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "cartoonbrew",
+      "name": "Cartoon Brew",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.cartoonbrew.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "C",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "stephen-follows",
+      "name": "Stephen Follows",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://stephenfollows.com/feed",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "C",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true,
+        "summaryIsBody": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "thr-business",
+      "name": "THR Business",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.hollywoodreporter.com/business/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "C",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 20,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "c21media",
+      "name": "C21Media",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.c21media.net/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "C",
+        "bodyPolicy": "feed_only",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true,
+        "requiresCorroboration": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "advanced-television",
+      "name": "Advanced Television",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://advanced-television.com/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 3,
+          "initialBackfillMonths": 3
+        },
+        "editorialGroup": "C",
+        "bodyPolicy": "prefilter_first",
+        "fullTextMinChars": 1500,
+        "browserUserAgent": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 20,
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
@@ -247,32 +775,11 @@
       "first_party": false,
       "owner_entity_id": null,
       "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [],
-      "site_fulltext": false,
-      "syndicate_fulltext": false,
-      "enabled": true
-    },
-    {
-      "id": "deadline",
-      "name": "Deadline",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://deadline.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 3,
-          "initialBackfillMonths": 3
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
       "interval_minutes": 60,
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "aswf",
@@ -289,7 +796,7 @@
       "first_party": true,
       "owner_entity_id": "aswf",
       "participation_mode": "editorial",
-      "interval_minutes": 120,
+      "interval_minutes": 60,
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,

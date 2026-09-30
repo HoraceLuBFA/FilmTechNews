@@ -59,6 +59,8 @@ export interface GuardedResponse {
 /** How the collectors introduce themselves: the site's own crawler name and address (industry/site.ts). */
 export const DEFAULT_UA = `Mozilla/5.0 (compatible; ${SITE.crawlerName}/1.0; +${config.siteUrl}/about)`;
 
+export const BROWSER_UA = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 ${SITE.crawlerName}/1.0`;
+
 export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}): Promise<GuardedResponse> {
   // One budget includes DNS, every redirect and the body. Restarting it at each hop allowed a
   // nominal 20 s image request to occupy the API for minutes.

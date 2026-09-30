@@ -56,3 +56,16 @@ test("Atom XHTML still passes through HTML sanitization without decoding escaped
   assert.doesNotMatch(item!.bodyHtml!, /<script|<img|javascript:|onclick=/);
   assert.ok(item!.bodyHtml!.includes("&lt;img"), "escaped markup remains text");
 });
+
+test("source body policy preserves short feed material and never treats a clue feed as full text", async () => {
+  const feedUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}/body`;
+  const source = { config: { feedUrl, fullTextMinChars: 1500 }, participation_mode: "editorial" };
+  const [short] = (await fetchRss(source as never)).candidates;
+  assert.equal(short!.bodyStatus, "pending");
+  assert.equal(short!.bodyText, null);
+  assert.match(short!.excerpt!, /Before bold/);
+  const [clue] = (await fetchRss({ ...source, config: { ...source.config, bodyPolicy: "feed_only" } } as never)).candidates;
+  assert.equal(clue!.bodyStatus, "unconfirmed");
+  assert.equal(clue!.bodyText, null);
+  assert.equal(clue!.excerpt, null, "full content is not silently substituted for a missing public summary");
+});

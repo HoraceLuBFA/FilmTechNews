@@ -29,6 +29,9 @@ export interface AnalyzeInputArticle {
     ownerEntityId?: string | null;
     /** The source asks for the article page (fetchPublicContent, detail pages, web listings). */
     fetchesBody?: boolean;
+    bodyPolicy?: "prefilter_first" | "feed_only";
+    editorialGroup?: "A" | "B" | "C";
+    requiresCorroboration?: boolean;
   };
   /** Stored Chinese translation of the body (e.g. a full post whose original was truncated). */
   translationZh?: string | null;
@@ -63,6 +66,8 @@ export async function loadAnalyzeInput(articleId: string): Promise<AnalyzeInputA
     bodyText: row.body_text, excerpt: row.excerpt, bodyStatus: row.body_status, xPost: withXArticle(row.x_post, row.x_article), media: row.media,
     source: {
       name: row.source_name, kind: row.source_kind, tier: row.tier, firstParty: row.first_party, tags: row.source_tags, ownerEntityId: row.owner_entity_id,
+      bodyPolicy: row.config?.bodyPolicy, editorialGroup: row.config?.editorialGroup,
+      requiresCorroboration: row.config?.requiresCorroboration === true,
       fetchesBody: row.config?.fetchPublicContent === true || !!row.config?.detail || row.source_kind === "web_list",
     },
     translationZh: row.translation_zh,

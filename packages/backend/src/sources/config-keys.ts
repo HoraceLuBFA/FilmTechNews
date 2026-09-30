@@ -4,13 +4,13 @@
 import type { SourceRow } from "./types.ts";
 
 // Rules applied in collect.ts to every kind read through collectSource.
-const COLLECTED = ["_aihot", "allowUrlPrefixes", "denyUrlPrefixes", "ingestNoiseFilter", "itemUrlPrefixRewrite", "sortByPublishedAt", "detail", "fetchPublicContent"];
+const COLLECTED = ["_aihot", "allowUrlPrefixes", "denyUrlPrefixes", "ingestNoiseFilter", "itemUrlPrefixRewrite", "sortByPublishedAt", "detail", "fetchPublicContent", "editorialGroup", "bodyPolicy", "requiresCorroboration", "browserUserAgent"];
 
 const KEYS: Record<SourceRow["kind"], string[]> = {
-  rss: [...COLLECTED, "feedUrl", "summaryIsBody", "preserveUrlFragment", "allowCategories", "denyCategories"],
+  rss: [...COLLECTED, "feedUrl", "fullTextMinChars", "summaryIsBody", "preserveUrlFragment", "allowCategories", "denyCategories"],
   web_list: [
     ...COLLECTED, "url", "baseUrl", "parseMode", "adapter", "cacheToleranceSeconds", "linksStartLine", "preserveUrlFragment",
-    "itemSelector", "linkSelector", "titleSelector", "publishedAtSelector", "publishedAtRegex", "publishedAtUtcOffset",
+    "itemSelector", "linkSelector", "titleSelector", "summarySelector", "publishedAtSelector", "publishedAtRegex", "publishedAtUtcOffset",
   ],
   json_list: [
     ...COLLECTED, "url", "mode", "method", "headers", "bodyJson", "jsonKey", "windowVar", "itemsPath", "itemsObjectValues",
@@ -37,6 +37,8 @@ const NESTED: Record<string, string[]> = {
 };
 
 const VALUES: Record<string, string[]> = {
+  editorialGroup: ["A", "B", "C"],
+  bodyPolicy: ["prefilter_first", "feed_only"],
   adapter: ["mimo_home"],
   parseMode: ["html", "markdown", "docusaurus_changelog"],
 };

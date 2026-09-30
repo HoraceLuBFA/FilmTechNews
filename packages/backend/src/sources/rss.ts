@@ -1,6 +1,6 @@
 // RSS 2.0 / Atom / RDF feeds.
 import { XMLParser } from "fast-xml-parser";
-import { guardedFetch } from "../lib/http-fetch.ts";
+import { BROWSER_UA, guardedFetch } from "../lib/http-fetch.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
@@ -93,10 +93,15 @@ export function isTeaser(text: string): boolean {
  * a teaser that stands in as the excerpt when the entry has none).
  */
 function feedText(bodyHtml: string | null, summaryHtml: string, source: SourceRow): Pick<Candidate, "excerpt" | "bodyHtml" | "bodyText" | "bodyStatus"> {
+  if (source.config.bodyPolicy === "feed_only") return {
+    excerpt: summaryHtml ? collapseWhitespace(stripTags(summaryHtml)).slice(0, 2000) : null,
+    bodyHtml: null, bodyText: null, bodyStatus: "unconfirmed",
+  };
   const bodyText = bodyHtml ? stripTags(bodyHtml) : null;
+  const minChars = Number(source.config.fullTextMinChars) || 281;
   const teaser = !!bodyText && source.participation_mode === "editorial" && isTeaser(bodyText);
-  const excerpt = summaryHtml ? collapseWhitespace(stripTags(summaryHtml)).slice(0, 2000) : teaser ? collapseWhitespace(bodyText!) : null;
-  return bodyText && bodyText.length > 280 && !teaser
+  const excerpt = summaryHtml ? collapseWhitespace(stripTags(summaryHtml)).slice(0, 2000) : bodyText ? collapseWhitespace(bodyText).slice(0, 2000) : null;
+  return bodyText && bodyText.length >= minChars && !teaser
     ? { excerpt, bodyHtml, bodyText, bodyStatus: "ok" }
     : { excerpt, bodyHtml: null, bodyText: null, bodyStatus: "pending" };
 }
@@ -121,12 +126,13 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
   const configHash = sha256(stableJson(source.config));
   const previous = !opts.force && source.cursor?.rss?.configHash === configHash ? source.cursor.rss as RssValidator : null;
   const headers: Record<string, string> = { accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.8" };
+  if (source.config.browserUserAgent === true) headers["user-agent"] = BROWSER_UA;
   if (previous?.etag) headers["if-none-match"] = previous.etag;
   if (previous?.lastModified) headers["if-modified-since"] = previous.lastModified;
   let res = await guardedFetch(url, { headers, timeoutMs: 25_000 });
   // A redirect may have changed destinations, whose ETag namespace is unrelated to the old one.
   if (res.status === 304 && previous && res.url !== previous.responseUrl) {
-    res = await guardedFetch(url, { headers: { accept: headers.accept! }, timeoutMs: 25_000 });
+    res = await guardedFetch(url, { headers: { accept: headers.accept!, ...(headers["user-agent"] ? { "user-agent": headers["user-agent"] } : {}) }, timeoutMs: 25_000 });
   }
   const validator: RssValidator = {
     configHash, responseUrl: res.url,
@@ -153,7 +159,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
   if (channel) {
     const items = arr(doc.rss?.channel?.item ?? doc["rdf:RDF"]?.item);
     for (const it of items) {
-      const link = text(it.link) || text(it.guid);
+      const link = text(it.link) || atomLink(it["atom:link"]) || text(it.guid);
       const title = collapseWhitespace(stripTags(text(it.title)));
       if (!link || !title) continue;
       const contentEncoded = text(it["content:encoded"]);

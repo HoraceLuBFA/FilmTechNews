@@ -178,7 +178,7 @@ const isContentFilter = (error: unknown) => error instanceof ProviderRejectedErr
 
 /** Only a title or a feed summary, and a page to fetch: the article is judged on the page. */
 export function waitsForPage(a: AnalyzeInputArticle): boolean {
-  return a.bodyStatus === "pending" && !a.bodyText && !a.xPost && pageFetchable(a.url, a.source.kind);
+  return a.source.bodyPolicy !== "feed_only" && a.bodyStatus === "pending" && !a.bodyText && !a.xPost && pageFetchable(a.url, a.source.kind);
 }
 
 type StepOpts = { attemptTag?: string; scoreModel?: string };
@@ -421,9 +421,27 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
-  if (waitsForPage(input)) return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: [], reused: true };
+  if (waitsForPage(input)) {
+    const early = input.source.bodyPolicy === "prefilter_first" ? await runPrefilter(input, opts) : null;
+    if (!early || early.label !== "BLOCK") {
+      if (early) await completeReceipt(sql, early.receiptId);
+      return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: early ? [early.receiptId] : [], reused: early?.reused ?? true };
+    }
+    // runAnalysis reuses the same prefilter receipt and persists the BLOCK normally.
+  }
   const run = await runAnalysis(input, opts);
   const out = normalizeAnalysis(run);
+  // These sources remain discoverable, but cannot independently establish a selected event.
+  // An editor can confirm corroboration with the existing audited publication override.
+  if (input.source.requiresCorroboration && out.selected) {
+    out.selected = false;
+    out.reasonZh = "来源线索需官方或独立专业报道交叉印证后纳入精选";
+  }
+  if (out.relevance === "pass" && out.summaryZh && input.source.bodyPolicy === "feed_only") {
+    out.summaryZh = `综合产业媒体线索，仅依据公开 RSS 标题与摘要，未读取付费正文。\n\n${out.summaryZh}`;
+  } else if (out.relevance === "pass" && out.summaryZh && input.source.requiresCorroboration) {
+    out.summaryZh = `以下为该来源的报道，尚未经独立专业来源交叉印证。\n\n${out.summaryZh}`;
+  }
   const receiptIds = [
     run.prefilter.receiptId, ...(run.scores?.receiptIds ?? []), ...(run.writing?.receiptIds ?? []), ...(run.structure ? [run.structure.receiptId] : []),
   ];
