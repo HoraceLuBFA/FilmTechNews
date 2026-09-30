@@ -106,3 +106,9 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 ```
 
 信息来源页面已独立完成上线和验收，访问 https://filmtech.lumenghe.com/source-directory 即可查看；历史新闻补跑的终态与页面功能交付分别检查。
+
+## 2026-09-30 19:22 调用链与最新终态核对
+
+宿主机 `filmtech-codex.service` 当前运行，桥接及客户端文件 SHA-256 与本地代码一致。`/usr/local/bin/codex` 解析为主机既有 `codex-clash` 入口，CLI 版本 0.153.4；worker 现场环境确认模型 gpt-5.6-sol、reasoning_effort medium、模型开关 true、文章分析并发 1。每个模型步骤单独启动 `codex exec --ignore-user-config --ephemeral --skip-git-repo-check --json -s read-only`，stdin 传递提示词与材料，工具关闭，输出事件流由应用解析并通过 schema 校验、回执和共享发布入口落库。登录凭据不读取、不复制。
+
+历史续跑在北京时间 18:57 又于批量预筛阶段取得未知结果并退出，续跑最后完成计数 548；收尾检查按主任务失败停止，八期日报尚未重建。退出日志确认恢复原预算 10/100/300 并启动常规 worker。桥接捕获错误后统一返回未知结果，CLI 超时上限 110 秒，stderr 不记录；现有日志不能明确区分超时、CLI 非零退出或事件流不完整，不将未知结果直接解释为账户额度耗尽。恢复时先核对未知回执的现状及一次自动放行记录，再决定安全续跑；本节替代上文续跑仍运行的历史描述。
