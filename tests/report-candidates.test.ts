@@ -24,10 +24,47 @@ before(async () => {
             VALUES (${SOURCE}, 'Report boundary test', 'rss', 'T1', 'editorial', '2100-01-01')`;
 });
 after(async () => {
-  await sql`DELETE FROM reports WHERE kind = 'daily' AND key IN ('2020-01-02', '2020-01-03', '2020-01-04', '2020-01-05')`;
+  await sql`DELETE FROM reports WHERE kind = 'daily' AND key IN ('2020-01-02', '2020-01-03', '2020-01-04', '2020-01-05', '2020-02-02', '2020-02-03')`;
   await provider.close();
   await stopBoss();
   await closeDb();
+});
+
+test("explicit historical editions use source dates, retain selection and preserve the old revision", async () => {
+  const id = await selected("archive", "2020-02-01T12:00:00Z", "2020-03-01T12:00:00Z");
+  const hidden = await selected("archive-hidden", "2020-02-01T13:00:00Z", "2020-03-01T12:00:00Z");
+  const notSelected = await selected("archive-not-selected", "2020-02-01T14:00:00Z", "2020-03-01T12:00:00Z");
+  await sql`UPDATE publications SET backfill=true WHERE article_id IN ${sql([id, hidden, notSelected])}`;
+  await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${hidden}`;
+  await sql`UPDATE publications SET selected=false WHERE article_id=${notSelected}`;
+  const start = new Date("2020-02-01T00:00:00Z"), end = new Date("2020-02-02T00:00:00Z");
+  assert.equal((await candidates(start, end)).length, 0);
+  const archive = await candidates(start, end, true);
+  assert.deepEqual(archive.map((c) => c.itemId), [id]);
+  assert.equal(archive[0]!.publishedAt, "2020-02-01T12:00:00.000Z");
+  assert.equal((await candidates(end, new Date("2020-02-03T00:00:00Z"), true)).length, 0);
+  const duplicate = await selected("archive-duplicate", "2020-02-01T15:00:00Z", "2020-03-01T12:00:00Z");
+  await sql`UPDATE publications SET backfill=true WHERE article_id=${duplicate}`;
+  await assert.rejects(composeDaily("2020-02-02", "bad override", { duplicateItemIds: [duplicate] }), /only supported/);
+  await composeDaily("2020-02-02");
+  await composeDaily("2020-02-02", "test historical backfill", { historical: true, duplicateItemIds: [duplicate] });
+  const [report] = await sql`SELECT id,revision,content FROM reports WHERE kind='daily' AND key='2020-02-02'`;
+  assert.equal(report!.revision, 2);
+  assert.equal(report!.content.generator.attribution, "source-published-at");
+  assert.equal(report!.content.metrics.totalEvents, 1);
+  assert.deepEqual(report!.content.generator.duplicateItemIds, [duplicate]);
+  const [duplicatePublication] = await sql`SELECT selected,visibility FROM publications WHERE article_id=${duplicate}`;
+  assert.equal(duplicatePublication!.selected, true);
+  assert.equal(duplicatePublication!.visibility, "public");
+  const [prior] = await sql`SELECT content FROM report_revisions WHERE report_id=${report!.id} AND revision=1`;
+  assert.equal(prior!.content.metrics.totalEvents, 0);
+  const hits = provider.hits();
+  await composeDaily("2020-02-03", "test empty historical backfill", { historical: true });
+  assert.equal(provider.hits(), hits + 1);
+  const [empty] = await sql`SELECT content FROM reports WHERE kind='daily' AND key='2020-02-03'`;
+  assert.ok(empty!.content.lead);
+  assert.deepEqual(empty!.content.highlights, []);
+  assert.equal(empty!.content.metrics.totalEvents, 0);
 });
 
 async function analyzed(label: string, timelineAt: string): Promise<string> {

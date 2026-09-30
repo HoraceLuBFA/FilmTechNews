@@ -369,7 +369,7 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
   return (
     <article className="@container">
       <Masthead report={report} index={index} />
-      {count === 0 && report.flashes.length === 0 ? (
+      {count === 0 && report.flashes.length === 0 && !report.lead ? (
         <p className="py-16 text-center text-[14px] text-ink-4">本期没有入选内容。</p>
       ) : (
         <FrontPage report={report} pages={pages} leadStory={leadStory} count={count} />

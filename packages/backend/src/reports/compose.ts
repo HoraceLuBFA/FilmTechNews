@@ -46,7 +46,7 @@ function roleOf(kind: string, firstParty: boolean): string {
   return "媒体";
 }
 
-export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
+export async function candidates(start: Date, end: Date, historical = false): Promise<Candidate[]> {
   const rows = await sql.begin("isolation level read committed", async (tx) => {
     // Wait for in-flight releases and keep later ones outside this snapshot. The following SELECT
     // gets a fresh READ COMMITTED snapshot; model calls and report writes happen after the lock ends.
@@ -56,15 +56,17 @@ export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
       source_id: string; source_name: string; source_kind: string; fact_public_id: string | null; story_public_id: string | null; at: Date; backfill: boolean;
     }[]>`
       SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
-             s.kind AS source_kind, f.public_id AS fact_public_id, st.public_id::text AS story_public_id, p.timeline_at AS at, p.backfill
+             s.kind AS source_kind, f.public_id AS fact_public_id, st.public_id::text AS story_public_id,
+             CASE WHEN ${historical} THEN p.published_at ELSE p.timeline_at END AS at, p.backfill
       FROM publications p JOIN sources s ON s.id = p.source_id
       LEFT JOIN facts f ON f.id = p.fact_id LEFT JOIN stories st ON st.id = f.story_id
       -- Attribute each item by the later of arrival and release; either range can use its index.
-      WHERE p.visibility = 'public' AND p.selected AND NOT p.backfill
-        AND (
+      WHERE p.visibility = 'public' AND p.eligible AND p.selected
+        AND ((${historical} AND p.published_at >= ${start} AND p.published_at < ${end} AND p.visible_after <= now())
+        OR (NOT ${historical} AND NOT p.backfill AND (
           (p.visible_after <= p.timeline_at AND p.timeline_at >= ${start} AND p.timeline_at < ${end})
           OR (p.visible_after > p.timeline_at AND p.visible_after >= ${start} AND p.visible_after < ${end})
-        )`;
+        )))`;
   });
   // One entry per fact: first-party first, then score.
   const byFact = new Map<string, Candidate>();
@@ -102,13 +104,14 @@ const LeadSchema = z.object({
   highlights: z.array(z.union([z.number(), z.string()])).max(6).catch([]),
 });
 
-async function writeLead(kind: string, key: string, entries: ReportEntry[], model: string) {
-  if (entries.length === 0) return null;
-  const list = entries.slice(0, 30).map((e, i) => `${i + 1}. ${e.title}｜${e.summary.slice(0, 120)}`).join("\n");
+async function writeLead(kind: string, key: string, entries: ReportEntry[], model: string, historical = false) {
+  if (entries.length === 0 && !historical) return null;
+  const list = entries.slice(0, 30).map((e, i) => `${i + 1}. ${e.title}｜${e.summary.slice(0, historical ? 1800 : 120)}`).join("\n");
   const res = await chatJson({
-    model, purpose: "report_lead", subject: `report:${kind}:${key}`, promptVersion: REPORT_VERSION,
+    model, purpose: "report_lead", subject: `report:${kind}:${key}`, promptVersion: historical ? `${REPORT_VERSION}:historical-v1` : REPORT_VERSION,
     system: promptText("report-daily-lead"),
-    user: list, schema: LeadSchema, temperature: 0.3, maxTokens: 800,
+    user: historical ? `这是 ${key} 的历史补刊，按原文发布日期归档，覆盖前一天北京时间08:00至本日08:00。导语说明这是历史补刊，不暗示实时发布。仅使用以下材料；若没有条目，标题写“本期暂无可核实的入选报道”，导语说明当前已接入来源和该时间窗口内未取得符合标准的报道，这不代表全行业没有新闻，highlights返回空数组。\n${list || "本期入选条目：0。"}` : list,
+    schema: LeadSchema, temperature: 0.3, maxTokens: 800,
   });
   const highlights = res.data.highlights
     .map((h) => entries[Number(h) - 1])
@@ -134,12 +137,17 @@ async function saveReport(kind: "daily" | "weekly" | "monthly", key: string, sta
 }
 
 /** Daily report for Beijing date D covers [D-1 08:00, D 08:00) Beijing time. */
-export async function composeDaily(date: string, reason = "scheduled"): Promise<{ key: string; entries: number }> {
+export async function composeDaily(date: string, reason = "scheduled", options: { historical?: boolean; duplicateItemIds?: string[] } = {}): Promise<{ key: string; entries: number }> {
+  if (options.duplicateItemIds?.length && !options.historical) throw new Error("Duplicate overrides are only supported for explicit historical editions");
   const end = new Date(beijingMidnight(date).getTime() + 8 * 3600 * 1000);
   const start = new Date(end.getTime() - 86400000);
   const covered = await recentlyCovered("daily", date);
-  const all = await candidates(start, end);
-  const fresh = all.filter((c) => !covered.has(c.factKey) && !covered.has(`a:${c.itemId}`));
+  const all = await candidates(start, end, options.historical);
+  // Historical imports have no event groups. An operator may omit confirmed duplicate coverage
+  // from this edition without changing its publication, score or selected status.
+  const duplicates = new Set(options.duplicateItemIds ?? []);
+  if ([...duplicates].some((id) => !all.some((c) => c.itemId === id))) throw new Error("A duplicate override is not a candidate of this historical edition");
+  const fresh = all.filter((c) => !duplicates.has(c.itemId) && !covered.has(c.factKey) && !covered.has(`a:${c.itemId}`));
   const perSection = new Map<string, Candidate[]>();
   const flashes: Array<{ itemId: string; title: string; sourceName: string; sourceUrl: string; publishedAt: string }> = [];
   for (const c of fresh) {
@@ -155,7 +163,7 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
   }));
   const ordered = sections.flatMap((s) => s.items).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const model = await modelFor("report");
-  const lead = ordered.length ? await writeLead("daily", date, ordered, model) : null;
+  const lead = ordered.length || options.historical ? await writeLead("daily", date, ordered, model, options.historical) : null;
   const content = {
     date,
     lead: lead?.lead ?? null,
@@ -170,7 +178,8 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
     },
     windowStart: start.toISOString(),
     windowEnd: end.toISOString(),
-    generator: { version: REPORT_VERSION, model, repeatsSuppressed: all.length - fresh.length },
+    generator: { version: REPORT_VERSION, model, repeatsSuppressed: all.length - fresh.length,
+      ...(options.historical ? { mode: "historical", attribution: "source-published-at", duplicateItemIds: [...duplicates] } : {}) },
   };
   await saveReport("daily", date, start, end, content, reason, model);
   if (lead) await completeReceipt(sql, lead.receiptId);
