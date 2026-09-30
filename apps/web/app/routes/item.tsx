@@ -305,7 +305,7 @@ export default function ItemPage() {
 
           {item.summary && (
             <section className={isX ? "mt-4" : "mt-7 xl:mt-8"}>
-              <div className="mb-2 text-[12px] font-semibold text-accent">{isX ? "摘要" : "中文详细摘要"}</div>
+              <div className="mb-2 text-[12px] font-semibold text-accent">{isX ? "摘要" : "中文摘要"}</div>
               <div className="space-y-5 text-[18px] leading-[1.8] text-ink xl:text-[20px]">
                 {item.summary.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
               </div>

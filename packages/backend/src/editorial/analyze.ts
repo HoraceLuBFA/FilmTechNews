@@ -17,6 +17,7 @@ import { chatJson, MODELS, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError } from "../providers/receipts.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
+import { cleanReaderSummary } from "./summary.ts";
 import { buildMaterial, firstImagePart, loadAnalyzeInput, type AnalyzeInputArticle } from "./input.ts";
 import { pageFetchable } from "../content/extract.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
@@ -446,11 +447,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
     out.selected = false;
     out.reasonZh = "来源线索需官方或独立专业报道交叉印证后纳入精选";
   }
-  if (out.relevance === "pass" && out.summaryZh && input.source.bodyPolicy === "feed_only") {
-    out.summaryZh = `综合产业媒体线索，仅依据公开标题与摘要，未读取付费正文。\n\n${out.summaryZh}`;
-  } else if (out.relevance === "pass" && out.summaryZh && input.source.requiresCorroboration) {
-    out.summaryZh = `以下为该来源的报道，尚未经独立专业来源交叉印证。\n\n${out.summaryZh}`;
-  }
+  if (out.summaryZh) out.summaryZh = cleanReaderSummary(out.summaryZh);
   const receiptIds = [
     run.prefilter.receiptId, ...(run.scores?.receiptIds ?? []), ...(run.writing?.receiptIds ?? []), ...(run.structure ? [run.structure.receiptId] : []),
   ];

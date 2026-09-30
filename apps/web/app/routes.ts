@@ -27,6 +27,7 @@ export default [
   route("more", "routes/more.tsx"),
   route("starred", "routes/starred.tsx"),
   route("source-directory", "routes/source-directory.tsx"),
+  route("source-directory/:id", "routes/source-articles.tsx"),
   route("agent", "routes/agent.tsx"),
   route("codex-reset", "routes/codex-reset.tsx"),
   route("codex-reset/history/:date", "routes/codex-reset.tsx", { id: "codex-reset-day" }),

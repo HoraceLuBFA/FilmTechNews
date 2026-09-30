@@ -254,7 +254,7 @@ test("source policies prefilter before extraction, preserve feed-only boundaries
   assert.equal(result!.output!.relevance, "pass");
   assert.equal(result!.output!.score, 90);
   assert.equal(result!.output!.selected, false, "a high score alone cannot satisfy independent corroboration");
-  assert.match(result!.output!.summaryZh, /仅依据公开标题与摘要/);
+  assert.doesNotMatch(result!.output!.summaryZh, /仅依据公开|付费正文|尚未经独立专业来源交叉印证/);
   await sql`UPDATE sources SET config='{}'::jsonb WHERE id=${SOURCE}`;
 });
 

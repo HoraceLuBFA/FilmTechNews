@@ -366,7 +366,7 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
         }}
       >
         <Field label="标题"><Input value={fields.title} placeholder={p?.title ?? ""} onChange={(e) => setFields({ ...fields, title: e.target.value })} /></Field>
-        <Field label="中文详细摘要"><Textarea rows={8} value={fields.summary} placeholder={p?.summary ?? ""} onChange={(e) => setFields({ ...fields, summary: e.target.value })} /></Field>
+        <Field label="中文摘要"><Textarea rows={8} value={fields.summary} placeholder={p?.summary ?? ""} onChange={(e) => setFields({ ...fields, summary: e.target.value })} /></Field>
         <Field label="推荐理由"><Textarea rows={2} value={fields.reason} placeholder={p?.reason ?? ""} onChange={(e) => setFields({ ...fields, reason: e.target.value })} /></Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="栏目">

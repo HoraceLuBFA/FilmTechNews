@@ -16,6 +16,7 @@ import { loadContact, loadMakerAvatar } from "@aihot/backend/site/contact";
 import { loadSiteStats } from "@aihot/backend/site/stats";
 import { itemAvailability } from "@aihot/backend/publication/availability";
 import { listTopicSummaries, loadTopicPage } from "@aihot/backend/publication/topics";
+import { listSourceCounts, loadSourcePage } from "@aihot/backend/publication/sources";
 import { registerFeedback } from "./feedback.ts";
 
 import { loadHot, loadStoryDetail, resolveStory } from "@aihot/backend/publication/stories";
@@ -80,6 +81,16 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
 }
 
 export function registerSite(app: FastifyInstance) {
+  app.get("/api/site/source-directory", siteHandler(async (req, reply) => {
+    return sendJsonWithEtag(req, reply, { sources: await listSourceCounts() }, { etagPrefix: "source-counts", cacheControl: "public, max-age=60, s-maxage=60" });
+  }));
+
+  app.get("/api/site/source-directory/:id", siteHandler(async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    const data = await loadSourcePage(id, Number(looseQuery(req).page ?? 1));
+    if (!data) return sendProblem(req, reply, { status: 404, code: "not_found", detail: "source page not found", cacheControl: "public, max-age=60" });
+    return sendJsonWithEtag(req, reply, data, { etagPrefix: "source-page", cacheControl: "public, max-age=60, s-maxage=60" });
+  }));
   app.get("/api/site/meta", siteHandler(async (req, reply) => {
     return sendJsonWithEtag(req, reply, siteMeta(), { etagPrefix: "meta", cacheControl: "public, max-age=60, s-maxage=60" });
   }));

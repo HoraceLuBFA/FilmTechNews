@@ -157,3 +157,17 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 严格回执检查另发现 12 篇 9 月 29 日旧样本的最新分析使用过 gpt-6-astra。为使范围内最终有效分析全部符合用户指定的 gpt-5.6-sol / medium，使用现有显式重新分析入口处理这 12 篇，原分析、发布状态与回执保留；不修改旧回执的模型或结果。当前权威收尾入口为 `filmtech-model-alignment-20260930.service`、`filmtech-model-alignment-audit-20260930.service` 和 `filmtech-model-alignment-public-audit-20260930.service`，私有脚本 `align-models.mjs`、`run-model-align-cloud.sh`、`run-model-align-audit.sh`、`run-model-align-public-audit.sh`、`audit-aligned-public.py`。它们等待补充入口结束，暂停并排空常规 worker，再以两篇并行、最多四个模型请求的上限处理；任何失败停止领取新材料并等待在途请求结束。原分析备份与进度保存在数据卷 `history-completion-20260930/model-align/`。
 
 恢复时优先核对 `model-align.log`、`model-align-restore.log`、`model-align-exit-code`、`final-aligned-cloud.json`、`final-aligned-public.json` 和 `aligned-public-audit.log`。这组终态替代之前各组过程描述；只有主任务退出 0、严格数据库检查全部通过、十一期公网 API 与引用文章验证通过，以及真实浏览器验收完成后，才能宣布全量交付。退出时仍恢复原项目预算 10/100/300 与常规 worker，桥接默认并发四；维护调用真实计入滚动预算，因此常规后续模型任务可能等待预算窗口恢复，须在最终状态中实际核查并说明。
+
+## 2026-10-01 来源文章入口与发现栏目刷新
+
+上一节的模型统一任务及两项收尾检查均真实退出 0，`final-aligned-cloud.json` 的 reports/articles/publication/receipts/budget/release/reportContent 全部通过；原冻结范围共 2,386 篇，673 篇通过相关性筛选，1,713 篇被拦截，55 篇入选。八期日报、两期周报和九月月报的公网 API、HTML 与引用文章摘要均核对通过。该验收快照保留，随后新增任务会继续改变公开数据。
+
+用户追加要求：刷新热点榜和主题精选；统一显示“中文摘要”并去掉固定取材说明；来源卡片显示收录数量及该来源全部文章入口；讨论原库的跨来源去重机制。来源数量和分页均从共享 publication 层读取公开、可读、符合收录规则的文章，不展示被拦截、撤下或尚未释放的文章，不暴露后台评级。公开路径为 `/source-directory/:id`，避免与 `/sources/:id` 既有后台书签重定向冲突；该来源列表不受全部动态原有 50 页上限限制。原始分析和素材保持不变，通过共享发布投影移除固定取材说明，未来摘要生成也移除这些固定说明，详细内容要求不变。
+
+原库的首页已经按故事/事实折叠，热点榜按事件排名，主题页与全部动态按文章列出。历史回填默认不参与事件归组，故本次增加仅供明确维护调用的 `historical` 归组选项；按原文发布时间记录事实和热度，不把旧稿发现时间充当今天的热度。默认采集行为、人工归组、逐篇选择判断和评分门槛保持原样。本次维护先处理常规采集发现的新增与修订材料，再刷新摘要投影，对全部已入选材料及最近 48 小时的公开收录材料归组，更新多报道事件综述、真实热度和主题目录，最后重建十一期历史报刊。
+
+当前权威入口为服务器独立 `filmtech-discovery-refresh-20261001.service`，仍使用 gpt-5.6-sol / medium。私有目录 `.data/full-finish-20260930/` 保存 `refresh-discovery.mjs`、`run-discovery-refresh.sh`、`audit-discovery-public.py`、`discovery.log`、`discovery-restore.log`、`discovery-exit-code`、`final-discovery-cloud.json`、`final-discovery-public.json` 和 `discovery-public-audit.log`；数据卷 `history-completion-20260930/discovery-refresh/` 保存输入、旧公开摘要、来源数量和主题数量。正常 worker 在维护期间暂停，API/web 已上线来源入口与文案的新镜像，维护容器不因后续 API 更新而重启。该服务由 systemd 托管，不依赖本机会话，不重复启动旧服务。
+
+用户已明确选择在补跑后临时保留日常更新余量，并自动恢复原限额。`scripts/filmtech-budget-grace.ts` 在严格维护验收之后冻结已有真实请求的最大序号，按仍处于分钟/小时/日窗口的这些旧请求数，为原预算 10/100/300 添加临时余量；新日常请求照常计数，旧请求的回执、状态和 live origin 均不改写。`filmtech-budget-grace.timer` 每分钟重新核对，临时余量随旧请求自然到期递减，全部满 24 小时后恢复原预算及备注。单位文件已安装，只有成功收尾并建立数据卷 `filmtech-budget-grace-20260930/state.json` 后才启用计时器。`budget-grace-opened.json` 记录实际截止时间，失败时恢复原预算和常规 worker，不能只凭服务已启动宣布临时余量已生效。
+
+新增功能已通过 153 项空库后端与桥接测试、18 项前端测试、类型检查和生产构建，公网 30 项 smoke 通过。来源统计/分页测试覆盖来源隔离、撤下及延迟公开内容排除，历史归组测试确认旧稿不增加当前 48 小时热度，预算生命周期测试确认自动恢复且不改写任何真实请求。主题计数另修正为遵守精选的公开释放规则，需核对该补充检查及服务器最后镜像。最终仍须验收发现刷新服务退出 0、严格数据库和公网报刊检查、实际来源卡片按钮与数量、来源文章分页、热点与主题结果、真实浏览器样式，以及计时器和常规 worker 的生效状态。

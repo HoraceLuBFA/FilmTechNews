@@ -1,4 +1,6 @@
 import { SOURCE_DIRECTORY, SOURCE_GROUPS } from "@aihot/industry/source-directory";
+import { Link, useLoaderData } from "react-router";
+import { apiGet } from "../lib/api.server";
 import { IconArrowUpRight } from "../components/icons";
 import { pageMeta } from "../lib/seo";
 
@@ -7,10 +9,16 @@ export function meta() {
 }
 
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" };
+  return { "Cache-Control": "public, max-age=0, s-maxage=60" };
+}
+
+export async function loader({ request }: { request: Request }) {
+  return apiGet<{ sources: Array<{ id: string; total: number }> }>("/api/site/source-directory", { signal: request.signal });
 }
 
 export default function SourcesPage() {
+  const { sources: counts } = useLoaderData<typeof loader>();
+  const totals = new Map(counts.map((source) => [source.id, source.total]));
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-10">
       <header className="pb-2 pt-5 lg:pt-1">
@@ -54,8 +62,11 @@ export default function SourcesPage() {
                     <p className="mb-4 mt-3.5 flex-1 text-[12.5px] leading-[1.8] text-ink-3">{source.description}</p>
                     <p className="break-all text-[11.5px] leading-[1.7] text-ink-4">{source.url}</p>
                     <a href={source.url} target="_blank" rel="noopener noreferrer" aria-label={`访问 ${source.name} 主站（新窗口）`} className="mt-3 inline-flex min-h-10 items-center justify-between gap-2 rounded-control border border-line px-3 text-[12px] font-medium text-ink-2 transition-colors hover:border-accent/40 hover:bg-accent/5 hover:text-accent">
-                      访问网站<IconArrowUpRight size={15} />
+                      <span>访问网站<span className="num ml-2 text-[11px] font-normal text-ink-4">本站收录 {totals.get(source.id) ?? 0} 篇</span></span><IconArrowUpRight size={15} />
                     </a>
+                    <Link to={`/source-directory/${source.id}`} prefetch="intent" className="mt-2 inline-flex min-h-10 items-center justify-between gap-2 rounded-control bg-accent/5 px-3 text-[12px] font-medium text-accent transition-colors hover:bg-accent/10">
+                      查看该来源全部文章<IconArrowUpRight size={15} />
+                    </Link>
                   </article>
                 </li>
               ))}

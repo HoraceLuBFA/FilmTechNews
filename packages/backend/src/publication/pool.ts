@@ -103,6 +103,8 @@ async function poolCount(key: string | null, query: () => Promise<Array<{ n: num
 }
 
 export interface PoolQuery extends TimelineFilters {
+  sourceId?: string | null;
+  maxPages?: number;
   q?: string | null;
   tab?: "time" | "relevance";
   page?: number;
@@ -112,15 +114,16 @@ export interface PoolQuery extends TimelineFilters {
 
 export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
   const now = query.now ?? new Date();
-  const page = Math.min(Math.max(query.page ?? 1, 1), POOL_MAX_PAGES);
+  const maxPages = query.maxPages ?? POOL_MAX_PAGES;
+  const page = Math.min(Math.max(query.page ?? 1, 1), maxPages);
   const q = query.q?.trim() || null;
   const tab = q && query.tab === "relevance" ? "relevance" : "time";
   const terms = q ? searchTerms(q) : [];
-  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)}`;
+  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)} ${query.sourceId ? sql`AND p.source_id = ${query.sourceId}` : sql``}`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
-  const cap = POOL_MAX_PAGES * POOL_PAGE_SIZE;
+  const cap = maxPages * POOL_PAGE_SIZE;
   // A fixed clock (tests, replays) never shares cached totals.
-  const filterKey = query.now ? null : JSON.stringify([query.channel, query.category, query.tag, query.topicTags ?? null]);
+  const filterKey = query.now ? null : JSON.stringify([query.channel, query.category, query.tag, query.topicTags ?? null, query.sourceId ?? null, maxPages]);
 
   // Searches go through pool_search (eligible items only): trigram indexes for longer terms, a small
   // table to scan for one- and two-character ones.
@@ -199,7 +202,7 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
     filters: { channel: query.channel, category: query.category, tag: query.tag, topic: query.topic ?? null, q, tab },
     items: rows.map(toFeedItemSummary),
     page,
-    pageCount: Math.min(POOL_MAX_PAGES, Math.max(1, Math.ceil(total / POOL_PAGE_SIZE))),
+    pageCount: Math.min(maxPages, Math.max(1, Math.ceil(total / POOL_PAGE_SIZE))),
     total,
     todayCount: Number(meta.today_count),
     freshness: (meta.updated_at ?? now).toISOString(),

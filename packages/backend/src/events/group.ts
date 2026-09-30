@@ -588,6 +588,8 @@ export interface GroupResult {
 }
 
 export interface GroupOptions {
+  /** Operator archive rebuild: retain original event times, without treating discovery as fresh heat. */
+  historical?: boolean;
   /** Discussion evidence only (hot_signal sources): attach to a story, never create one. */
   signalOnly?: boolean;
   /** An explicit regroup: drop the automatic membership and decide again (manual decisions still win). A report waiting in regroup_pending is regrouped the same way. */
@@ -622,7 +624,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   const left = opts.force || a.regroup_pending ? await resetAutomatic(articleId) : [];
 
   // History founds no event and adds no heat (isHistorical); a regroup takes it out of any it joined.
-  if (isHistorical(a)) {
+  if (isHistorical(a) && !opts.historical) {
     await markGrouped(articleId);
     await publishArticle(articleId);
     return { verdict: "historical" };

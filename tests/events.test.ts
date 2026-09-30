@@ -77,6 +77,8 @@ after(async () => {
   await closeDb();
 });
 
+
+
 test("a detach made while the model is deciding the report's fact stands", async () => {
   const id = await report("race");
   const grouping = groupArticle(id);
@@ -311,4 +313,19 @@ test("stories that reports keep tying together without merging list each other a
     pairRelation = null;
     answerAll = false;
   }
+});
+
+test("an explicit historical grouping retains source time and does not add current heat", async () => {
+  hold.open();
+  relation = "SAME_OCCURRENCE";
+  pairRelation = null;
+  const publishedAt = new Date(Date.now() - 3 * 86400_000);
+  const id = await report("archive-rebuild", FACT_TITLE, "摘要", publishedAt);
+  assert.equal((await groupArticle(id)).verdict, "historical");
+  assert.equal((await sql`SELECT article_id FROM story_signals WHERE article_id=${id}`).length, 0);
+  const grouped = await groupArticle(id, { historical: true });
+  assert.equal(grouped.verdict, "same-fact");
+  const [signal] = await sql<{ observed_at: Date }[]>`SELECT observed_at FROM story_signals WHERE article_id=${id}`;
+  assert.equal(signal!.observed_at.toISOString(), publishedAt.toISOString());
+  assert.equal((await sql`SELECT article_id FROM story_signals WHERE article_id=${id} AND observed_at>now()-interval '48 hours'`).length, 0);
 });

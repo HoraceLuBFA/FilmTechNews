@@ -1,0 +1,8 @@
+[Unit]
+Description=FilmTechNews temporary update budget reconciliation
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec filmtechnews-api-1 node scripts/filmtech-budget-grace.ts --tick
