@@ -106,6 +106,23 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     return { state: "skipped" };
   }
   try {
+    // Operator backfills may finish an article while its original queue job is
+    // still waiting. Reuse that committed revision before opening another paid
+    // prefilter request; an explicit attemptTag still requests re-evaluation.
+    if (!opts.attemptTag) {
+      const [completed] = await sql<{ relevance: string }[]>`
+        UPDATE articles a SET processing_state = CASE WHEN x.relevance = 'block' THEN 'blocked' ELSE 'analyzed' END,
+          processing_error = NULL, processing_attempts = 0, processing_retry_at = NULL, processing_queued_at = NULL
+        FROM analyses x WHERE a.id = ${articleId} AND a.revision = ${row.revision}
+          AND x.id = (SELECT id FROM analyses WHERE article_id = a.id ORDER BY id DESC LIMIT 1)
+          AND x.input_revision = a.revision
+        RETURNING x.relevance`;
+      if (completed) {
+        await publishArticle(articleId);
+        if (completed.relevance === "pass" && !row.historical) await enqueue(QUEUES.group, { articleId }, { singletonKey: articleId, priority: PRIORITY.live });
+        return { state: completed.relevance };
+      }
+    }
     const result = await analyzeArticle(articleId, { attemptTag: opts.attemptTag });
     if (!result) return { state: "missing" };
     // Only a title or a feed summary: the article page first; extraction queues the analysis again.

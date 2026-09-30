@@ -11,7 +11,7 @@ import { closeDb, sql } from "@aihot/backend/db";
 import { upsertMaterial } from "@aihot/backend/content/materials";
 import { analyzeArticle, SCORE_SYSTEM, tierThreshold } from "@aihot/backend/editorial/analyze";
 import { rewriteSummary } from "@aihot/backend/editorial/rewrite-summary";
-import { queueProcessing } from "@aihot/backend/jobs/content";
+import { processArticle, queueProcessing } from "@aihot/backend/jobs/content";
 import { QUEUES, stopBoss } from "@aihot/backend/jobs/queue";
 import { buildArticlePrompt, finalizeCopy, compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@aihot/backend/editorial/writing";
 import { promptText } from "@aihot/backend/editorial/prompts";
@@ -279,4 +279,36 @@ test("historical batch relevance shares one paid receipt and is bound to exact a
   assert.equal(provider.hits()-before,5);
   assert.ok(selected!.receiptIds.includes(batch.get(pass)!.result.receiptId));
   await assert.rejects(prefilterHistoricalBatch([off,off]),/unique articles/);
+});
+
+test("queued backfill completions survive an exhausted budget without hiding revisions or explicit re-evaluation", async () => {
+  const { prefilterHistoricalBatch } = await import("@aihot/backend/editorial/historical-prefilter");
+  const url = `https://example.com/queued-completion-${T}`;
+  const id = await article("OFFTOPIC", { url });
+  const batch = await prefilterHistoricalBatch([id]);
+  await analyzeArticle(id, { historicalPrefilter: batch.get(id) });
+  const [original] = await sql`SELECT per_minute,per_hour,per_day FROM budgets WHERE service='dashscope'`;
+  const hits = provider.hits();
+  const [initial] = await sql`SELECT count(*)::int AS n FROM analyses WHERE article_id=${id}`;
+  try {
+    await sql`UPDATE budgets SET per_minute=1,per_hour=1,per_day=1 WHERE service='dashscope'`;
+    await sql`UPDATE articles SET processing_state='new',processing_error='budget exhausted' WHERE id=${id}`;
+    assert.equal((await processArticle(id)).state, "block");
+    assert.equal(provider.hits(), hits, "a batch analysis must not buy a new per-article prefilter");
+    const [saved] = await sql`SELECT a.processing_state,a.processing_error,p.analysis_id,x.id FROM articles a
+      JOIN publications p ON p.article_id=a.id JOIN LATERAL(SELECT id FROM analyses WHERE article_id=a.id ORDER BY id DESC LIMIT 1)x ON true WHERE a.id=${id}`;
+    assert.equal(saved.processing_state, "blocked");
+    assert.equal(saved.processing_error, null);
+    assert.equal(saved.analysis_id, saved.id);
+    assert.equal((await sql`SELECT count(*)::int AS n FROM analyses WHERE article_id=${id}`)[0]!.n, initial.n);
+    await assert.rejects(processArticle(id, { attemptTag: `explicit-${T}` }), /Budget for/);
+  } finally {
+    await sql`UPDATE budgets SET per_minute=${original!.per_minute},per_hour=${original!.per_hour},per_day=${original!.per_day} WHERE service='dashscope'`;
+  }
+  await upsertMaterial({ sourceId: SOURCE, url, title: `OFFTOPIC genuinely edited ${T}`, bodyText: `${LONG} revised`, bodyStatus: "ok", via: "fetch" });
+  assert.equal((await processArticle(id)).state, "block");
+  assert.ok(provider.hits() > hits, "a changed revision still receives a real analysis");
+  const revisedHits = provider.hits();
+  assert.equal((await processArticle(id, { attemptTag: `fresh-explicit-${T}` })).state, "block");
+  assert.ok(provider.hits() > revisedHits, "an explicit re-evaluation remains paid");
 });

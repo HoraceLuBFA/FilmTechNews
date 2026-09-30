@@ -147,3 +147,13 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 
 
 公网核对已加入独立 `filmtech-full-finish-public-audit-20260930.service`，私有入口 `run-public-audit.sh`、`audit-public-cloud.py`，等待连续队列与数据库收尾单元结束，只在主任务成功且 final-cloud.json verified=true 后，验证全部十一期公网 API 修订与内容、服务器生成 HTML、引用文章摘要和详情页，保存 `final-public.json`、`public-audit.log`。它不调用模型，独立于本机会话；正常采集和预算的最终恢复仍以主任务退出及数据库收尾证据为准。抽查 After Effects AI Assistant、Sony FX5 测试和 Mavis Camera 三篇公网摘要，分别为 837、1115、811 字，包含操作条件、测试数字或限制，详细摘要要求未因提速降低。
+
+## 2026-09-30 最终队列核对与历史模型统一
+
+连续队列已真实退出 0，最初 2,385 篇范围内文章在恢复常规 worker 前全部处于终态，文章与分析修订一致；私有 `material-state-at-completion.json` 保存该时点证明，十一期报刊随后全部重建。恢复常规 worker 后，旧排队任务再次尝试处理 64 篇已通过历史批量预筛完成的材料，被恢复后的预算拒绝并错误地重置为待处理。`processArticle` 现先核对最新已提交分析是否对应当前文章修订，符合时复用并通过共享入口刷新公开状态；显式 `attemptTag` 和真正的材料修订仍执行重新分析。新增回归测试覆盖预算耗尽时复用、修订更新和显式重新分析，150 项空库后端与桥接测试及类型检查通过，修复已进入服务器 worker 镜像。
+
+补充入口 `filmtech-completion-tail-20260930.service` 已恢复上述已有结果，并处理常规采集发现的 CG Channel 新稿与 Variety 修订稿；范围内总数增至 2,386。它保留来源冻结时间与旧清单，不重导入过时的来源内容，等待真实公开释放后再次重建十一期。`tail.log`、`tail-exit-code`、`final-tail-cloud.json` 和 `final-tail-public.json` 位于同一私有恢复目录。原 `final-cloud.json` 和失败的公网核对记录保留，不能作为最终验收通过证明。
+
+严格回执检查另发现 12 篇 9 月 29 日旧样本的最新分析使用过 gpt-6-astra。为使范围内最终有效分析全部符合用户指定的 gpt-5.6-sol / medium，使用现有显式重新分析入口处理这 12 篇，原分析、发布状态与回执保留；不修改旧回执的模型或结果。当前权威收尾入口为 `filmtech-model-alignment-20260930.service`、`filmtech-model-alignment-audit-20260930.service` 和 `filmtech-model-alignment-public-audit-20260930.service`，私有脚本 `align-models.mjs`、`run-model-align-cloud.sh`、`run-model-align-audit.sh`、`run-model-align-public-audit.sh`、`audit-aligned-public.py`。它们等待补充入口结束，暂停并排空常规 worker，再以两篇并行、最多四个模型请求的上限处理；任何失败停止领取新材料并等待在途请求结束。原分析备份与进度保存在数据卷 `history-completion-20260930/model-align/`。
+
+恢复时优先核对 `model-align.log`、`model-align-restore.log`、`model-align-exit-code`、`final-aligned-cloud.json`、`final-aligned-public.json` 和 `aligned-public-audit.log`。这组终态替代之前各组过程描述；只有主任务退出 0、严格数据库检查全部通过、十一期公网 API 与引用文章验证通过，以及真实浏览器验收完成后，才能宣布全量交付。退出时仍恢复原项目预算 10/100/300 与常规 worker，桥接默认并发四；维护调用真实计入滚动预算，因此常规后续模型任务可能等待预算窗口恢复，须在最终状态中实际核查并说明。
