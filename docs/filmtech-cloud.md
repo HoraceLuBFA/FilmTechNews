@@ -137,3 +137,10 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 实际观察发现，32 篇波次末尾只剩一篇较慢材料时，其余位置会空等。维护入口改为四个持续消费批次的队列，预筛与单篇分析按同一消费者串行接续，每个消费者最多两个模型请求，总上限仍为八；检查点写入串行化，致命错误停止其他消费者领取新任务并等待在途调用结束。模型、双评分、详细摘要与筛选门槛均不改变。149 项空库后端及桥接回归测试、类型检查和镜像私有文件排除核验通过。切换前数据库屏障确认一个事务等待、桥接 active=0，再发终止信号和释放屏障，旧 pool 人为退出码 143、原预算和 worker 的恢复记录保留。
 
 当前权威入口更新为 `filmtech-full-finish-continuous-20260930.service`、`filmtech-full-finish-continuous-audit-20260930.service`，操作脚本 `run-continuous-cloud.sh`、`run-continuous-audit.sh`，日志 `continuous.log`、`continuous-build.log`、`continuous-restore.log`、`continuous-audit.log`，终态 `continuous-exit-code`、`final-cloud.json`，仍在服务器 `.data/full-finish-20260930/`。来源冻结、备份和数据卷检查点不变；不要重启旧入口。主任务退出时恢复预算 10/100/300、桥接默认并发四与常规 worker，最终验收须确认这些实际生效状态及公开报刊。
+
+
+为了在全量分析期间尽快恢复读者阅读，独立的 `filmtech-interim-reports-20260930.service` 已于北京时间 21:12 完成一轮真实报刊生成，私有脚本 `interim-reports.mjs`、日志 `interim-reports.log`，共享入口、模型回执、严格日报同事件去重与 historical/asOf 选项均沿用正式收尾流程。八期日报公开条目数依次为 10、10、9、2、0、1、4、1；27 日当前暂无符合标准的报道，不用无关内容填充。两期周报实际引用 29、10 篇，月报引用 24 篇；39 与 50 是进入汇编的候选材料数，不能与页面引用数混淆。这轮属于提前更新，文章尚未全量完成，主任务结束仍将再次重建全部十一期并做最终数据验收。
+
+提前发布的十一期公网 API 均验证可访问、引用可打开；浏览器七种日报/周报/月报组合实际检查 360、390、1440 像素和深浅色，标题与日期卡无重叠、无横向溢出、桌面站名单行，手机周报与桌面月报截图已人工核看。现有四条 C21Media 摘要的固定取材说明从“公开 RSS 标题与摘要”校正为“公开标题与摘要”，其材料实际来自公开 REST，未更改模型生成正文、未调用额外模型，原说明备份至数据卷 `history-completion-20260930/c21-caption-completion-before.json`。初版提前发布私有入口曾在语法阶段失败，未调用模型，已修复并另存失败日志；它不影响正式收尾的运行状态。
+
+连续队列运行截至北京时间 21:16，数据库范围内共 2,385 篇，已处理 1,404 篇、剩余 981 篇，尚无新的未知结果或分析失败。切换期间常规采集新增两篇截止时间内材料并修订一篇，均纳入当前队列，不删材料。最终需要检查 `continuous-exit-code=0`、收尾 `final-cloud.json` 全部通过、公网报刊与实际网页、预算与 bridge/worker 恢复；这条过程记录不能作为全量完成证据。
