@@ -4,7 +4,7 @@
 import { sql } from "../db.ts";
 import { tierRank, type HotEntry } from "./hot-read.ts";
 
-export const HOT_RULE_VERSION = "heat-v1-48h-halflife24h";
+export const HOT_RULE_VERSION = "heat-v2-48h-halflife24h-public-editorial";
 const WINDOW_HOURS = 48;
 const HALF_LIFE_HOURS = 24;
 const MIN_PARTICIPANTS = 2;
@@ -50,7 +50,12 @@ export function behindSources(clocks: SourceClock[], at: number, grace: boolean)
   return clocks.filter((c) => c.lastOk === null || c.lastOk < at - (grace ? c.graceMs : 0)).map((c) => c.id);
 }
 
-/** Heat of every story at `at` (defaults to now), from story_signals alone; `behind` marks sources not fully observed. */
+// Keep raw evidence, but editorial material leaving the public pool must stop contributing heat.
+const visibleSignal = (at: Date) => sql`(ss.kind = 'signal' OR EXISTS (
+  SELECT 1 FROM publications p WHERE p.article_id = ss.article_id AND p.visibility = 'public'
+  AND p.eligible AND (NOT p.selected OR p.visible_after <= ${at})))`;
+
+/** Heat of every story at `at`; `behind` marks sources not fully observed. */
 async function heatRows(at: Date, behind: string[] = []): Promise<HeatRow[]> {
   const prev = new Date(at.getTime() - 6 * 3600 * 1000);
   const decayNow = sql`power(0.5, extract(epoch FROM (${at}::timestamptz - last_at)) / 3600.0 / ${HALF_LIFE_HOURS})`;
@@ -62,8 +67,9 @@ async function heatRows(at: Date, behind: string[] = []): Promise<HeatRow[]> {
              bool_or(kind = 'editorial') AS editorial,
              max(observed_at) FILTER (WHERE observed_at <= ${prev}) AS last_prev,
              bool_or(source_id = ANY(${behind}::text[])) AS behind
-      FROM story_signals
+      FROM story_signals ss
       WHERE observed_at > ${at}::timestamptz - make_interval(hours => ${WINDOW_HOURS}) AND observed_at <= ${at}
+        AND ${visibleSignal(at)}
       GROUP BY story_id, participant_key
     ), agg AS (
       SELECT story_id,
@@ -109,6 +115,7 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       SELECT DISTINCT ON (ss.participant_key) s.name, ss.kind, s.tier, ss.observed_at AS at
       FROM story_signals ss JOIN sources s ON s.id = ss.source_id
       WHERE ss.story_id = ${r.story_id} AND ss.observed_at > ${at}::timestamptz - make_interval(hours => ${WINDOW_HOURS}) AND ss.observed_at <= ${at}
+        AND ${visibleSignal(at)}
       ORDER BY ss.participant_key, (ss.kind = 'editorial') DESC, ss.observed_at DESC`;
     // The reporting sources of the window, latest first (signal participants are counted separately).
     const reporting = participants.filter((p) => p.kind === "editorial").sort((x, y) => y.at.getTime() - x.at.getTime());

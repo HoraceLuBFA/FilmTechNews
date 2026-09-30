@@ -138,3 +138,10 @@
 运行证据在本机私有 `.data/verification/source-expansion/`：reader-cloud.json、final-cloud.json、final-checks.log、typecheck.log、sync-test.log、public-smoke.log、local-final-smoke.log。服务器备份与构建、同步日志在 `.data/source-expansion-20260930/`，包含 source-before.tar.gz、database-before.dump、build.log、sync.log。恢复时先检查当前服务与来源修改，源码可从备份恢复；不要直接恢复整库覆盖上线后的文章或反馈。
 
 维护入口 `scripts/sync-filmtech-sources.ts` 默认预览，显式 --apply 才同步目录中的抓取配置、启用状态和周期，使用前先核对数据库差异、暂停 worker 并备份。seed.ts 继续保持只添加缺失来源。后续主要观察模型排队与 C 级筛选质量，来源增多不自动扩大额度；阈值校准仍须真实标注样本。
+
+
+## 2026-10-01 技术选题收紧与既有公开池复筛完成
+
+按用户确认的口径收紧普通人事、经营财务、内容交易及影评影讯，保留有实质技术方法、设施、服务或技术条款变化的产业报道。腾讯云 gpt-5.6-sol / medium 复筛冻结的 714 篇公开稿，最终排除 348 篇（产业类 290 篇），经真实模型流程恢复四篇有具体方法的专业声音稿；原材料、旧分析、回执与修订保留，五轴权重和门槛不变。验收时公开文章 374 篇，32 个来源的全部分页、热点、主题、11 期报刊及 26 篇引用文章均通过检查；155 项后端与桥接测试、18 项前端测试、构建、类型检查和公网 smoke 通过。日常 worker 与自动到期预算余量已经恢复，最新维护请求满 24 小时为北京时间 10 月 2 日 03:26:03，届时回归 10/100/300 的原限额。
+
+详细处理边界见 [影视技术筛选标准](filmtech-editorial-policy.md)，云端恢复入口、分阶段人工中断记录和最终验收证据见 [腾讯云运行](filmtech-cloud.md) 最新章节。后续新稿继续按新规则正常处理，上述数量为验收快照。

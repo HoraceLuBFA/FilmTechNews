@@ -88,7 +88,7 @@ function materialQuality(a: AnalyzeInputArticle): string {
 export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: boolean } = {}): string {
   const lines: string[] = [];
   lines.push(`【来源】${a.source.name}（${a.source.kind}，tier=${a.source.tier || "未分级"}）`);
-  if (a.source.editorialGroup) lines.push(`【来源用途】${a.source.editorialGroup === "C" ? "C：综合产业背景；必须有具体制作、技术或产业链关联，排除纯票房、片单、明星、收视率与体育转播" : a.source.editorialGroup === "A" ? "A：技术与制作主线" : "B：专业技术与放映线索"}`);
+  if (a.source.editorialGroup) lines.push(`【来源用途】${a.source.editorialGroup === "C" ? "C：综合产业背景；必须有具体制作技术、方法或技术设施/服务变化，排除普通人事、经营财务、版权发行交易、影评影讯、纯票房与体育转播" : a.source.editorialGroup === "A" ? "A：技术与制作主线" : "B：专业技术与放映线索"}`);
   if (a.source.bodyPolicy === "feed_only") lines.push("【素材范围】公开标题及摘要，不推断未提供的细节；直接概述报道内容，不添加素材获取、付费墙或正文读取情况的固定说明。");
   if (a.source.requiresCorroboration) lines.push("【核实限制】尚未经独立来源交叉印证，只能归因于该来源，不写成已核实结论。");
   if (a.source.tags?.length) lines.push(`【来源标签】${a.source.tags.join(", ")}`);

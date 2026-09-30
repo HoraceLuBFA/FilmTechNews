@@ -183,6 +183,39 @@ test("a withdrawn item leaves the hot board and the hot APIs at once, not at the
   for (const url of exits) assert.ok(!(await get(url)).body.includes(rep!), `${url} still shows the withdrawn item`);
 });
 
+test("blocked editorial evidence no longer inflates heat or participant counts", async () => {
+  const [story] = await sql<{ id: number }[]>`INSERT INTO stories (public_id,title,first_report_at,latest_at)
+    VALUES (${randomUUID()},${`FILTER-HOT-${T}`},now()-interval '2 hours',now()) RETURNING id`;
+  const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id,story_id,title)
+    VALUES (${`filter-fact-${T}`},${story!.id},${`FILTER-HOT-${T}`}) RETURNING id`;
+  const ids = [await article(),await article(),await article()];
+  for (const id of ids) {
+    await sql`INSERT INTO fact_articles (fact_id,article_id,role) VALUES (${fact!.id},${id},'report')`;
+    await sql`INSERT INTO story_signals (story_id,article_id,participant_key,source_id,kind,observed_at)
+      VALUES (${story!.id},${id},${`participant-${id}`},${SOURCE},'editorial',now()-interval '1 hour')`;
+    await publishArticle(id,released());
+  }
+  await computeHotRanking();
+  const before = (await latestHotRanking())!.entries.find(e => e.storyId === story!.id)!;
+  assert.equal(before.participantCount,3);
+  async function block(id: string) {
+    await sql`INSERT INTO analyses (article_id,input_revision,origin,relevance,selected)
+      VALUES (${id},1,'replay','block',false)`;
+    await publishArticle(id);
+  }
+  await block(ids[0]!);
+  await computeHotRanking();
+  const after = (await latestHotRanking())!.entries.find(e => e.storyId === story!.id)!;
+  assert.equal(after.participantCount,2);
+  assert.equal(after.sourceCount,2);
+  assert.equal(after.reportCount,2);
+  assert.ok(after.heat < before.heat);
+  assert.equal((await sql`SELECT article_id FROM story_signals WHERE story_id=${story!.id}`).length,3,"raw evidence stays intact");
+  await block(ids[1]!);
+  await computeHotRanking();
+  assert.ok(!(await latestHotRanking())!.entries.some(e => e.storyId === story!.id),"one public participant is insufficient");
+});
+
 test("item pages follow the live rule: unsummarised editorial items keep one, hot_signal items have none", async () => {
   const SIGNAL = `${SOURCE}-signal`;
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
