@@ -27,12 +27,13 @@ export async function listFeedback(f: { status?: string; q?: string; page?: numb
   return { page, rows, counts: Object.fromEntries(counts.map((c) => [c.status, c.n])), bans };
 }
 
-export async function updateFeedback(id: number, input: { status?: string; note?: string | null; version: string }, actor: string) {
+export async function updateFeedback(id: number, input: { status?: string; note?: string | null; version: string }, actor: string, options: { onlyNew?: boolean } = {}) {
   if (input.status && !FEEDBACK_STATUSES.includes(input.status as FeedbackStatus)) throw new Error(`unknown status ${input.status}`);
   return sql.begin(async (tx) => {
     const [before] = await tx`SELECT id, status, note, updated_at FROM feedback WHERE id = ${id} FOR UPDATE`;
     if (!before) return null;
     if (new Date(before.updated_at as Date).toISOString() !== input.version) throw new Conflict("这条反馈已被修改，请刷新后再操作");
+    if (options.onlyNew && before.status !== "new") return before;
     const [after] = await tx`
       UPDATE feedback SET status = coalesce(${input.status ?? null}, status), note = ${input.note === undefined ? before.note : input.note}, updated_at = now()
       WHERE id = ${id} RETURNING id, status, note, updated_at`;
