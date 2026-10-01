@@ -31,19 +31,19 @@ PAGES.push(...LEADERBOARD);
 if (FEATURES.codexResetMonitor) PAGES.push("/codex-reset");
 
 let failed = 0;
-async function check(path: string, expect: (res: Response, body: string) => string | null) {
+async function check(path: string, expect: (res: Response, body: string) => string | null, init?: RequestInit, expectedStatus = 200, label = path) {
   try {
-    const res = await fetch(base + path, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
+    const res = await fetch(base + path, { redirect: "manual", signal: AbortSignal.timeout(30_000), ...init });
     const body = res.headers.get("content-type")?.startsWith("image/") ? "" : await res.text();
     if (res.status === 503 && LEADERBOARD.includes(path)) {
       console.log(`– ${path}  no leaderboard round published yet`);
       return;
     }
-    const problem = res.status !== 200 ? `HTTP ${res.status}` : expect(res, body);
-    console.log(`${problem ? "✗" : "✓"} ${path}${problem ? `  ${problem}` : ""}`);
+    const problem = res.status !== expectedStatus ? `HTTP ${res.status}` : expect(res, body);
+    console.log(`${problem ? "✗" : "✓"} ${label}${problem ? `  ${problem}` : ""}`);
     if (problem) failed += 1;
   } catch (error) {
-    console.log(`✗ ${path}  ${String(error)}`);
+    console.log(`✗ ${label}  ${String(error)}`);
     failed += 1;
   }
 }
@@ -59,6 +59,19 @@ const mcp = await fetch(`${base}/api/mcp`, {
 const mcpOk = mcp.includes(`"name":"${SITE.mcpPrefix}"`);
 console.log(`${mcpOk ? "✓" : "✗"} /api/mcp initialize${mcpOk ? "" : `  ${mcp.slice(0, 200)}`}`);
 if (!mcpOk) failed += 1;
+
+// One successful handshake misses proxy bugs on the subsequent connection reuse.
+for (const method of ["notifications/initialized", "tools/list", "ping"]) {
+  await check("/api/mcp", (res, body) => {
+    if (method === "notifications/initialized") return res.status === 202 && !body ? null : `notification status ${res.status}`;
+    if (res.status !== 200) return `${method} status ${res.status}`;
+    return method === "tools/list" && !body.includes(`${SITE.mcpPrefix}_get_latest`) ? "missing MCP tools" : body.includes('"result"') ? null : "missing MCP result";
+  }, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18" },
+    body: JSON.stringify({ jsonrpc: "2.0", method, ...(method === "notifications/initialized" ? {} : { id: 2 }) }),
+  }, method === "notifications/initialized" ? 202 : 200, `/api/mcp ${method}`);
+}
 
 console.log(failed ? `\n${failed} check(s) failed` : "\nall checks passed");
 process.exit(failed ? 1 : 0);

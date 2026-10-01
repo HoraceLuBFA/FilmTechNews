@@ -40,6 +40,16 @@ const ssr = createRequestListener({ build, mode: "production" });
 
 class BadRequest extends Error {}
 
+// Connection options belong to one HTTP hop. In particular, forwarding Nginx's `close` to
+// the API while forwarding the MCP SDK's `keep-alive` back lets the agent reuse a closed socket.
+// Node decodes chunked bodies before piping them; each outgoing hop supplies its own framing.
+function proxyHeaders(incoming: import("node:http").IncomingHttpHeaders): import("node:http").IncomingHttpHeaders {
+  const headers = { ...incoming };
+  for (const name of String(incoming.connection ?? "").split(",")) delete headers[name.trim().toLowerCase()];
+  for (const name of ["connection", "keep-alive", "proxy-connection", "proxy-authenticate", "proxy-authorization", "te", "trailer", "transfer-encoding", "upgrade"]) delete headers[name];
+  return headers;
+}
+
 /** Hashed build assets are immutable; anything else from the client build gets a short cache. */
 async function serveStatic(pathname: string, res: import("node:http").ServerResponse): Promise<boolean> {
   if (pathname.includes("..") || pathname.endsWith("/")) return false;
@@ -136,9 +146,9 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
     // entry), or this connection's own. Both headers carry only that.
     const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").map((v) => v.trim()).filter(Boolean);
     const client = TRUST_PROXY && forwarded.length ? forwarded[forwarded.length - 1]! : (req.socket.remoteAddress ?? "");
-    const headers = { ...req.headers, "x-forwarded-for": client, "x-real-ip": client };
+    const headers = { ...proxyHeaders(req.headers), "x-forwarded-for": client, "x-real-ip": client };
     const upstream = httpRequest({ hostname: API.hostname, port: API.port, path: raw, method: req.method, headers }, (up) => {
-      res.writeHead(up.statusCode ?? 502, up.headers);
+      res.writeHead(up.statusCode ?? 502, proxyHeaders(up.headers));
       up.pipe(res);
     });
     upstream.on("error", () => {
