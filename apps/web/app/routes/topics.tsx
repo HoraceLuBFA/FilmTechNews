@@ -19,7 +19,7 @@ export async function loader({ request }: { request: Request }) {
 }
 
 export function meta() {
-  return pageMeta({ title: "主题", description: `按机构与产品、技术方向、内容形态浏览${SITE.subject}资讯，涵盖摄影、视效、虚拟制作、色彩、声音与媒体工程。`, path: "/topics", image: "/og/pages/topics.png" });
+  return pageMeta({ title: "主题", description: `按技术方向、内容形态、机构与产品浏览${SITE.subject}资讯，涵盖摄影、视效、虚拟制作、色彩、声音与媒体工程。`, path: "/topics", image: "/og/pages/topics.png" });
 }
 
 export function headers() {
@@ -27,9 +27,9 @@ export function headers() {
 }
 
 const GROUPS = [
-  { key: "company", name: "机构与产品", blurb: "追踪设备与软件厂商、制作机构及技术组织的进展" },
   { key: "field", name: "技术方向", blurb: "按技术领域阅读：摄影、视效、虚拟制作、色彩、声音……" },
   { key: "genre", name: "内容形态", blurb: "按内容类型浏览：论文、教程、观点、政策……" },
+  { key: "company", name: "机构与产品", blurb: "追踪设备与软件厂商、制作机构及技术组织的进展" },
 ] as const;
 
 export default function TopicsPage() {
@@ -39,7 +39,7 @@ export default function TopicsPage() {
       <header className="pb-2 pt-5 lg:pt-1">
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">按主题看{SITE.subject}</h1>
         <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
-          按机构与产品、技术方向、内容形态浏览 <span className="num">{topics.length}</span> 个主题，持续汇集近期焦点与精选。
+          按技术方向、内容形态、机构与产品浏览 <span className="num">{topics.length}</span> 个主题，持续汇集近期焦点与精选。
         </p>
       </header>
       {GROUPS.map((g) => (
