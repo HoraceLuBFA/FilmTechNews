@@ -1,0 +1,8 @@
+[Unit]
+Description=FilmTechNews hourly supervision
+[Timer]
+OnCalendar=*-*-* *:05:00
+Persistent=true
+Unit=filmtech-watchdog@hourly.service
+[Install]
+WantedBy=timers.target

@@ -231,3 +231,15 @@ ssh tencent-cloud 'systemctl show filmtech-full-backfill-resume-20260930.service
 类型检查、163 项隔离后端与桥接测试、18 项前端测试、前端构建和公网 30 项 smoke 通过。隔离库将原始 llm 日预算设为 1,000 后执行既有自动到期回归测试，确认恢复该基准；测试的模型请求仅访问本机桩，额外阻断外部 fetch，不消耗真实模型额度。首次全局关闭模型阀导致桩调用测试不能执行，之后本机网络保护又误拦数据 URI，失败日志保留；修正测试运行环境后完整检查通过，未修改业务实现。到期验证属于隔离时间模拟，次日实际到期及两个完整正常日的调用、队列、账号用量仍需观察。
 
 恢复入口：服务器 `.data/daily-cap-1000-20261001/` 保存 grace-state-before.json、tencent-compose-before.yml 与 activation.json；本机 `.data/verification/daily-cap-1000/` 保存 cloud-final.json、runtime-final.json、测试及公网检查。回滚不能直接恢复整份旧余量状态，否则可能撤销已获授权的新基准或覆盖其后的计数变化；先读当前状态，再按需要调整基准并执行 --tick。后续发布及重建使用显式叠加的 Tencent Compose 文件。
+
+## 2026-10-01 云端独立监工与私有运行日志
+
+监工由 scripts/filmtech-watchdog.py、scripts/watchdog-mail.cjs 和 systemd 的 filmtech-watchdog@.service 运行。sample.timer 每五分钟更新，hourly.timer 每小时 05 分检查，summary.timer 每三小时 10 分汇总，主机现场时区为北京时间；三项均已 enable，小时任务已于 12:05 实际自动触发。监工只读取数据库统计、容器状态与网站健康，不调用模型、不更改队列或调用额度、不重启生产服务。页面每六十秒自动读取最新快照，每个正常监工周期仅运行少量本机命令与 SQL。
+
+站点 `/log/` 与 `/log/status.json` 由独立 Nginx Basic Auth 保护，不沿用其他面板的内网免密码例外。服务器只保存用户指定密码的 salted APR1 哈希，权限 root:nginx 0640；邮箱收件配置位于 /etc/filmtech-watchdog.json，权限 root 0600，不写入仓库和日志。输出目录 /var/lib/filmtech-watchdog-public 位于通用静态根目录之外，仅此受保护的 alias 暴露；私有状态、原配置备份在项目 `.data/watchdog/`。所有页面输出均为聚合白名单，不展示原始错误、环境变量、SMTP 凭据、抓取正文或个人账号用量。输出禁止缓存、搜索收录和目录浏览。
+
+检查 API/worker/web/db/Codex 可用性、公网与内部 API、日志门禁、worker 心跳、来源调度、调用卡住或失败、日额度耗尽、可用额度下长期无处理进度、来源连续失败及到期日报周报月报。小时节奏已满但仍有材料等待属于正常状态，没有合格新稿或零条目的有效报刊不自动报警。异常至少相隔两分钟连续观察两次后，通过已有 Kuma SMTP 配置合并发邮件；同一持续异常最多六小时提醒一次，恢复另行通知。邮件凭据只在 Kuma 容器内读取，不复制到主机配置。监工依赖本机 Docker 与现有邮件通道，不能替代整机失联的外部监测；页面超过十五分钟未刷新会显示采样过期提示。
+
+验收：匿名读取页面和 JSON 均为 401，指定账号读取为 200；邮件通道测试已获 SMTP 接受，不将此称为收件箱到达证明。三个服务执行成功，初版 SQL 连接字段限定及日报条数路径问题已修正，启动记录的日报条数校正备份保留；最新快照正常，日报四项、周报八项、月报二十六项。390/1440 像素实际浏览器显示四张指标卡且无横向溢出，已查看手机截图。八项离线 Python 告警规则测试、163 项后端与桥接测试、18 项前端测试、类型检查、构建及公网三十项 smoke 通过，测试不访问外部模型服务。
+
+恢复先检查 systemctl list-timers 与 filmtech-watchdog@sample/hourly/summary.service 的 Result 和 journal，再核对 /etc/filmtech-watchdog.json、Nginx 的独立密码文件及项目私有 state.json。手动执行 sample 不发起模型任务；test-email 会实际向配置收件人发送测试邮件，勿重复执行。停用时先停三个 timer，再恢复 `.data/watchdog/nginx-before.conf` 并用 /usr/local/nginx/sbin/nginx -t 验证后 reload，不恢复数据库或动生产更新队列。本机验收证据在 `.data/verification/watchdog/`，口令和收件地址不记录在这些报告中。

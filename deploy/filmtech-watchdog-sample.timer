@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh FilmTechNews private log every five minutes
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=300
+Unit=filmtech-watchdog@sample.service
+[Install]
+WantedBy=timers.target

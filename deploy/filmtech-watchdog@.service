@@ -1,0 +1,10 @@
+[Unit]
+Description=FilmTechNews lightweight supervision (%i)
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/usr/bin/python3 /opt/filmtechnews/scripts/filmtech-watchdog.py --mode %i
+TimeoutStartSec=120
+UMask=0077
