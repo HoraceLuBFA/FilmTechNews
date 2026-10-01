@@ -1,43 +1,43 @@
 # 影视技术日报 / FilmTechNews
 
-面向影视制作、影像技术及媒体工程的资讯聚合站，基于 [AIHOT](https://github.com/KKKKhazix/AIHOT) 改造。公开信源经过采集、相关性筛选、评分、中文摘要和归组，通过网站、RSS、API 与 MCP 提供阅读索引。原项目说明保存在 [README.upstream.md](README.upstream.md)。
+FilmTechNews 汇集影视制作、影像技术及媒体工程领域的公开资讯，通过技术相关性筛选、中文摘要和事件归并，帮助从业者、教师、学生与研究者了解行业进展。
 
-线上地址：<https://filmtech.lumenghe.com>。当前由腾讯云独立采集、生成和展示，调用服务器自己的 Codex，使用 `gpt-5.6-sol`、`medium`。Mac 仅保留独立本地预览，生产更新不依赖本机开机。
-
-日常模型调用上限为滚动 24 小时 1,000 次，每个滚动小时最多 40 次，其中为报刊预留两次。文章处理完成后及时上线，以每三小时积累一批技术内容为观察目标；符合标准的新稿数量随信源供稿变化，不保证每小时均有新稿。历史补跑的临时计数抵销到期后保持新的 1,000 次日常基准，具体配置与恢复入口见腾讯云运行文档。
-
-腾讯云另有不调用模型的独立监工，五分钟采样、每小时检查、每三小时汇总。管理员运行日志位于 `/log/`，由独立 Basic Auth 保护；异常及恢复通过已有邮件通道报告，不依赖 Mac 开机。凭据和收件配置不入 Git。
+**访问网站：[影视技术日报](https://filmtech.lumenghe.com)**
 
 ## 内容范围
 
-摄影现场、视效动画、虚拟制作、剪辑色彩、声音、媒体工程、影院与沉浸、AI 影视、标准研究、产业动态。现已同步 OpenClaw 的 30 个来源配置，并保留 ASWF、Cinema Technology 两个补充来源。按 A/B/C 来源用途分别处理技术正文、专业线索和产业背景，具体可用性及例外见来源记录。默认展示分段的中文摘要和原文链接，不公开抓取全文。摘要覆盖主要事实、技术方法、参数、结果和限制，长度随原文信息量调整；列表保留简短预览。
+内容覆盖摄影现场、视效动画、虚拟制作、剪辑色彩、声音、媒体工程、影院与沉浸、AI 影视、标准研究和产业动态，汇集 30 余个专业媒体、行业组织与技术网站的公开信息。
 
-筛选重视技术变化、可复核参数、工作流、制作方法和标准更新，排除无具体技术关联的普通人事任免、公司经营财务、内容版权与发行交易、影评影讯及娱乐宣传；有实质技术方法、设施或服务变化的产业报道继续保留。专业声音实测不因采用音乐案例被视为娱乐新闻。沿用原项目七类内容、五维权重和分级门槛，后续应使用人工标注样本校准。首次回填保留原始日期，历史文章不作为当日新稿进入日报。
+筛选重点是具体的技术变化、可复核参数、制作方法、工作流与标准更新。有实质技术关联的产业报道也会纳入；普通人事任免、经营财务、版权交易、影评影讯与娱乐宣传通常不在收录范围内。
 
-## 运行与配置
+## 如何阅读
 
-Node.js 24.11+、PostgreSQL 17、npm workspaces。行业配置集中在 `industry/`；API、worker、web 分离。密钥与运行数据分别位于忽略的 `.env`、`.data/`，不要提交 Git。
+| 栏目 | 内容与用途 |
+| --- | --- |
+| [精选](https://filmtech.lumenghe.com/) | 优先阅读具有较高技术价值的报道。 |
+| [全部动态](https://filmtech.lumenghe.com/all) | 按时间浏览已收录资讯，并按技术类别筛选。 |
+| [热点](https://filmtech.lumenghe.com/hot) | 按事件查看相关报道，了解不同来源的关注点。 |
+| [日报](https://filmtech.lumenghe.com/daily)、[周报](https://filmtech.lumenghe.com/weekly)、[月报](https://filmtech.lumenghe.com/monthly) | 阅读不同时间跨度的技术进展汇编，并查阅历史期刊。 |
+| [主题精选](https://filmtech.lumenghe.com/topics) | 围绕技术方向、公司与机构持续追踪相关内容。 |
+| [信息来源](https://filmtech.lumenghe.com/source-directory) | 查看各来源的特色、主站链接和已收录文章。 |
+| [收藏](https://filmtech.lumenghe.com/starred) | 保存感兴趣的文章，便于后续查阅。 |
 
-```bash
-npm ci
-# 按 docs/filmtech-local.md 准备 .env
-npm run build -w @aihot/web
-python3 scripts/local.py start
-# http://127.0.0.1:3310
-```
+文章提供分段的中文摘要与原文链接，摘要尽量覆盖核心事实、技术方法、参数、结果和适用限制，长度随原文信息量调整。列表使用简短预览，详情页提供完整摘要；网站不公开抓取全文。
 
-模型支持原有 OpenAI-compatible API，也提供实验性的私有 Codex CLI 桥接。ChatGPT OAuth 由官方 Codex CLI 管理，不读取或复制令牌。腾讯云现已通过既有代理入口完成真实调用验证，后台 worker 全部迁移到服务器；本机原生产生成进程已禁用。调用仍经过预算、回执和业务结果验证，访客请求不触发模型调用。
+内容持续更新，新稿数量随信源供稿和筛选结果变化。历史补录保留原始日期，避免将旧内容误作当日新进展。
 
-## 项目文档
+## 订阅与接入
 
-- [当前状态与恢复入口](docs/filmtech-plan.md)
-- [本地运行](docs/filmtech-local.md)与[腾讯云运行](docs/filmtech-cloud.md)
-- [来源可行性表](docs/filmtech-sources.md)与[影视技术筛选标准](docs/filmtech-editorial-policy.md)
-- [用户已确认的上线文本](docs/filmtech-launch-review.md)
-- 原框架：[定制指南](docs/customize.md)、[架构](docs/architecture.md)、[评分校准](docs/selection.md)
+除网页阅读外，也可通过 [精选 RSS](https://filmtech.lumenghe.com/feed.xml) 与 [全部动态 RSS](https://filmtech.lumenghe.com/feed/all.xml) 订阅内容。项目提供公开 API 与 MCP 接口，相关说明见 [API 文档](https://filmtech.lumenghe.com/openapi-v1.json)和[智能体接入页面](https://filmtech.lumenghe.com/agent)。
 
-## 验证
+## 开发与定制
 
-修改后执行 `npm run typecheck`、隔离数据库上的 `npm test`、前端构建与测试，以及运行站点的 `scripts/smoke.ts`。Codex 私有适配器另有 `node --test tests/codex-bridge.test.mjs`，测试使用本地桩，不消耗模型额度。详细命令与验收约束见 [AGENTS.md](AGENTS.md)。
+项目采用 Node.js、PostgreSQL 和 React，采集处理、HTTP API 与网页界面分离。站名、分类、主题、信源和筛选规则集中在 `industry/`，便于调整行业范围与内容组织。
 
-本项目为 Horace 维护的个人实验项目，不代表任职机构立场。模型摘要可能有误，重要结论与参数请核对原始来源。
+开发者可参考[架构说明](docs/architecture.md)、[行业定制指南](docs/customize.md)与[信源配置说明](docs/sources.md)。
+
+## 项目说明
+
+FilmTechNews 基于 [AIHOT](https://github.com/KKKKhazix/AIHOT) 改造，感谢原项目提供采集、筛选、事件归组与报刊生成框架。
+
+本项目为 Horace 维护的个人实验项目，不代表任职机构立场。中文摘要由自动化工具辅助整理，重要结论、技术参数和引用请核对原始来源。使用说明见网站的[条款](https://filmtech.lumenghe.com/terms)与[隐私说明](https://filmtech.lumenghe.com/privacy)，问题或建议可通过[站内反馈](https://filmtech.lumenghe.com/feedback)提交。
