@@ -352,6 +352,9 @@ export interface ReportIndexEntry {
   count: number;
 }
 
+/** Aggregate page views, without visitor identifiers or browsing histories. */
+export interface SiteVisits { total: number; startedAt: string }
+
 /** Figures and samples for the about page (site-only; not part of v1). */
 export interface SiteStats {
   /** Sources collected from now. */

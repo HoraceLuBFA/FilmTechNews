@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLoaderData } from "react-router";
-import type { SiteStats } from "@aihot/contracts/site";
+import type { SiteStats, SiteVisits } from "@aihot/contracts/site";
+import { SITE_VISITS_EVENT } from "../lib/site-visits";
 import { apiGet } from "../lib/api.server";
 import { shortSourceName } from "../lib/format";
 import { ABOUT, SITE, withSubject } from "@aihot/industry/site";
@@ -23,11 +24,12 @@ interface ContactSettings {
 }
 
 export async function loader({ request }: { request: Request }) {
-  const [contact, stats] = await Promise.all([
+  const [contact, stats, visits] = await Promise.all([
     apiGet<ContactSettings>("/api/site/contact", { signal: request.signal }).catch((): ContactSettings => ({ wechatQr: null, feishuQr: null, makerAvatar: null })),
     apiGet<SiteStats>("/api/site/stats", { signal: request.signal }).catch(() => null),
+    apiGet<SiteVisits>("/api/site/visits", { signal: request.signal }).catch(() => null),
   ]);
-  return { contact, stats };
+  return { contact, stats, visits };
 }
 
 export function meta() {
@@ -193,7 +195,13 @@ function Latest({ item, className = "" }: { item: SiteStats["latest"][number] | 
 }
 
 export default function AboutPage() {
-  const { contact, stats } = useLoaderData<typeof loader>();
+  const { contact, stats, visits: initialVisits } = useLoaderData<typeof loader>();
+  const [visits, setVisits] = useState(initialVisits);
+  useEffect(() => {
+    const update = (event: Event) => setVisits((event as CustomEvent<SiteVisits>).detail);
+    window.addEventListener(SITE_VISITS_EVENT, update);
+    return () => window.removeEventListener(SITE_VISITS_EVENT, update);
+  }, []);
   const [focus, setFocus] = useState<number | null>(null);
   const [at, setAt] = useState(0);
   const shown = useRef(0);
@@ -280,7 +288,14 @@ export default function AboutPage() {
       </p>
 
       <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5 text-[12.5px] text-ink-4">
-        <span>{SITE.footerNote}</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span>{SITE.footerNote}</span>
+          {visits && (
+            <span title={`全站页面浏览次数，自 ${new Date(visits.startedAt).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })} 起累计；刷新和再次打开会重复计数。`}>
+              累计访问 <span className="num tabular-nums">{visits.total.toLocaleString("zh-CN")}</span> 次
+            </span>
+          )}
+        </div>
         <nav className="flex gap-5" aria-label="规则与隐私">
           <Link to="/terms" className="transition-colors hover:text-accent">
             使用规则

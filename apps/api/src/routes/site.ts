@@ -1,6 +1,9 @@
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
 import { FEATURES } from "@aihot/industry/features";
+import { config } from "@aihot/backend/config";
+import { loadSiteVisits } from "@aihot/backend/publication/visits";
+import { recordSiteVisit } from "@aihot/backend/site/visits";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@aihot/contracts/taxonomy";
 import { InvalidCursorError } from "@aihot/backend/lib/cursor";
@@ -81,6 +84,28 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
 }
 
 export function registerSite(app: FastifyInstance) {
+  app.get("/api/site/visits", siteHandler(async (_req, reply) => {
+    return reply.header("Cache-Control", "no-store").send(await loadSiteVisits());
+  }));
+
+  app.post("/api/site/visits", { bodyLimit: 256 }, siteHandler(async (req, reply) => {
+    reply.header("Cache-Control", "no-store");
+    // Accept the site's own browser requests, never third-party embeds or submitted visit data.
+    const origin = req.headers.origin;
+    const sameOrigin = origin === new URL(config.siteUrl).origin || origin === `${req.protocol}://${req.host}`;
+    if (!sameOrigin || (req.headers["sec-fetch-site"] && req.headers["sec-fetch-site"] !== "same-origin")) {
+      return sendProblem(req, reply, { status: 403, code: "invalid_request", detail: "same-origin request required" });
+    }
+    if (req.body !== undefined && req.body !== null) {
+      return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "visit data is not accepted" });
+    }
+    if (/bot|crawler|spider|headless|preview/i.test(String(req.headers["user-agent"] ?? ""))) {
+      return reply.code(204).send();
+    }
+    await recordSiteVisit();
+    return reply.send(await loadSiteVisits());
+  }));
+
   app.get("/api/site/source-directory", siteHandler(async (req, reply) => {
     return sendJsonWithEtag(req, reply, { sources: await listSourceCounts() }, { etagPrefix: "source-counts", cacheControl: "public, max-age=60, s-maxage=60" });
   }));

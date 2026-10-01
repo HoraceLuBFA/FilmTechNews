@@ -10,6 +10,7 @@ apps/web/.react-router
 .preview.htpasswd
 .git
 .github
+**/._*
 *.log
 
 # Local preview and font-generation inputs are not image contents.
