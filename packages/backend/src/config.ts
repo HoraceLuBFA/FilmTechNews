@@ -57,6 +57,11 @@ export const config = {
   modelCallsEnabled: bool("MODEL_CALLS_ENABLED", true),
   // A local CLI adapter may need more time than a direct HTTP model provider.
   llmTimeoutMs: int("LLM_TIMEOUT_MS", 0),
+  // Optional rolling-hour pacing, inside the existing paid-request budgets.
+  llmHourlyCallLimit: int("LLM_HOURLY_CALL_LIMIT", 0),
+  llmReportHourlyReserve: int("LLM_REPORT_HOURLY_RESERVE", 0),
+  llmMaxConcurrentCalls: int("LLM_MAX_CONCURRENT_CALLS", 0),
+  llmReportConcurrentReserve: int("LLM_REPORT_CONCURRENT_RESERVE", 0),
   devAdmin: env.DEV_AUTH_ROLE === "admin" ? { displayName: env.DEV_AUTH_DISPLAY_NAME || "Dev Admin" } : null,
   /** The admin password (at least 12 characters). Feishu sign-in below is optional. */
   adminPassword: env.ADMIN_PASSWORD || null,

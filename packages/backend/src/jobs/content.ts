@@ -29,6 +29,7 @@ interface Route {
   /** Not an editorial source: no analysis; the post goes straight to event grouping as discussion evidence. */
   signal: boolean;
   historical: boolean;
+  continuing: boolean;
 }
 
 /**
@@ -38,9 +39,11 @@ interface Route {
  * history adds no heat).
  */
 async function route(articleId: string, db: Db): Promise<Route | null> {
-  const [row] = await db<{ body_status: string; participation_mode: string; kind: string; config: Record<string, unknown>; url: string; bare: boolean; backfill: boolean; published_at: Date | null; discovered_at: Date }[]>`
+  const [row] = await db<{ body_status: string; participation_mode: string; kind: string; config: Record<string, unknown>; url: string; bare: boolean; backfill: boolean; published_at: Date | null; discovered_at: Date; continuing: boolean }[]>`
     SELECT a.body_status, s.participation_mode, s.kind, s.config, a.url, (coalesce(a.body_text, '') = '' AND a.x_post IS NULL) AS bare,
-           a.backfill, a.published_at, a.discovered_at
+           a.backfill, a.published_at, a.discovered_at,
+           EXISTS (SELECT 1 FROM receipts r WHERE r.subject = 'article:' || a.id || '@' || a.revision
+             AND r.status = 'received') AS continuing
     FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!row) return null;
   const historical = isHistorical(row);
@@ -49,7 +52,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
   const wantsBody = row.config.fetchPublicContent === true || !!row.config.detail || row.kind === "web_list";
   const needsPage = !row.config.bodyPolicy && !signal && (wantsBody || (row.bare && pageFetchable(row.url, row.kind)));
   const needsXArticle = row.kind === "x_search" && (!signal || (row.participation_mode === "hot_signal" && !historical));
-  return { step: pending && (needsPage || needsXArticle) ? "extract" : "analyze", signal, historical };
+  return { step: pending && (needsPage || needsXArticle) ? "extract" : "analyze", signal, historical, continuing: row.continuing };
 }
 
 /**
@@ -57,7 +60,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
  * first import or a backfill never holds up today's news; discussion evidence waits behind reports
  * in the serial grouping queue, history behind both.
  */
-const PRIORITY = { live: 0, liveSignal: -1, history: -2 } as const;
+const PRIORITY = { continuing: 1, live: 0, liveSignal: -1, history: -2 } as const;
 
 /**
  * The one way to hand an article to processing. `attemptTag` makes an explicit re-evaluation a new
@@ -76,7 +79,8 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   }
   const tagged = !!opts.attemptTag;
   return enqueue(QUEUES.analyze, tagged ? { articleId, attemptTag: opts.attemptTag } : { articleId },
-    { singletonKey: tagged ? `manual:analyze:${articleId}:${opts.attemptTag}` : articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live }, opts.db);
+    { singletonKey: tagged ? `manual:analyze:${articleId}:${opts.attemptTag}` : articleId,
+      priority: r.historical ? PRIORITY.history : !tagged && r.continuing ? PRIORITY.continuing : PRIORITY.live }, opts.db);
 }
 
 /**

@@ -8,6 +8,7 @@
 //    most one repeat; after that it waits for the admin.
 import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
+import { config } from "../config.ts";
 
 export class BudgetExceededError extends Error {
   readonly service: string;
@@ -81,25 +82,72 @@ interface ReceiptRow {
   updated_at: Date;
 }
 
-async function checkBudget(tx: Db, service: string): Promise<void> {
+async function checkBudget(tx: Db, req: ReceiptRequest): Promise<void> {
+  const { service } = req;
   const [budget] = await tx<{ per_minute: number; per_hour: number; per_day: number }[]>`
     SELECT per_minute, per_hour, per_day FROM budgets WHERE service = ${service}`;
   if (!budget) return; // default rows come with the migrations; a service an operator removed is unlimited
   // Every request sent counts, retries of the same logical request included.
-  const [counts] = await tx<{ minute: number; hour: number; day: number }[]>`
+  // The maintenance allowance is reconciled once a minute. Enforce its exact live
+  // boundary here as well, so aging maintenance calls cannot briefly grant extra normal calls.
+  const [graceRow] = service === "llm" ? await tx<{ value: { baselineMaxId: number; original: { per_minute: number; per_hour: number; per_day: number }; extra?: { perDay: number; expiresAt: string } } }[]>`
+    SELECT value FROM settings WHERE key = 'llm_budget_grace'` : [];
+  const grace = graceRow?.value;
+  const [counts] = await tx<{ minute: number; hour: number; day: number; old_minute: number; old_hour: number; old_day: number }[]>`
     SELECT
       count(*) FILTER (WHERE started_at > now() - interval '1 minute') AS minute,
       count(*) FILTER (WHERE started_at > now() - interval '1 hour') AS hour,
-      count(*) AS day
+      count(*) AS day,
+      count(*) FILTER (WHERE id <= ${grace?.baselineMaxId ?? 0} AND started_at > now() - interval '1 minute') AS old_minute,
+      count(*) FILTER (WHERE id <= ${grace?.baselineMaxId ?? 0} AND started_at > now() - interval '1 hour') AS old_hour,
+      count(*) FILTER (WHERE id <= ${grace?.baselineMaxId ?? 0}) AS old_day
     FROM receipt_attempts
     WHERE service = ${service} AND origin = 'live' AND started_at > now() - interval '1 day'`;
   const c = counts!;
   if (budget.per_minute <= 0 || budget.per_hour <= 0 || budget.per_day <= 0) {
     throw new BudgetExceededError(service, "stopped", 3600);
   }
-  if (c.minute >= budget.per_minute) throw new BudgetExceededError(service, "minute", 60);
-  if (c.hour >= budget.per_hour) throw new BudgetExceededError(service, "hour", 600);
-  if (c.day >= budget.per_day) throw new BudgetExceededError(service, "day", 3600);
+  const minuteLimit = grace ? Math.min(budget.per_minute, grace.original.per_minute + Number(c.old_minute)) : budget.per_minute;
+  const hourLimit = grace ? Math.min(budget.per_hour, grace.original.per_hour + Number(c.old_hour)) : budget.per_hour;
+  const extra = grace?.extra && Date.parse(grace.extra.expiresAt) > Date.now() ? grace.extra.perDay : 0;
+  const dayLimit = grace ? Math.min(budget.per_day, grace.original.per_day + Number(c.old_day) + extra) : budget.per_day;
+  if (c.minute >= minuteLimit) throw new BudgetExceededError(service, "minute", 60);
+  if (c.hour >= hourLimit) throw new BudgetExceededError(service, "hour", 600);
+  if (c.day >= dayLimit) throw new BudgetExceededError(service, "day", 3600);
+
+  if (service === "llm" && config.llmHourlyCallLimit > 0) {
+    const limit = config.llmHourlyCallLimit;
+    const reserve = Math.max(0, Math.min(limit, config.llmReportHourlyReserve));
+    const report = req.purpose.startsWith("report_");
+    const [used] = await tx<{ total: number; editorial: number; total_release: Date | null; editorial_release: Date | null }[]>`
+      WITH recent AS (
+        SELECT a.started_at, left(r.purpose, 7) = 'report_' AS report
+        FROM receipt_attempts a JOIN receipts r ON r.id = a.receipt_id
+        -- A clear provider rejection bought no model work. Keep it in the original
+        -- attempt budgets, but do not spend an hourly work slot on a bridge-busy response.
+        WHERE a.service = ${service} AND a.origin = 'live' AND a.status <> 'failed' AND a.started_at > now() - interval '1 hour'
+      )
+      SELECT count(*) AS total, count(*) FILTER (WHERE NOT report) AS editorial,
+        min(started_at) + interval '1 hour' AS total_release,
+        min(started_at) FILTER (WHERE NOT report) + interval '1 hour' AS editorial_release FROM recent`;
+    const totalFull = Number(used!.total) >= limit;
+    const editorialFull = !report && Number(used!.editorial) >= limit - reserve;
+    if (totalFull || editorialFull) {
+      const release = totalFull ? used!.total_release : used!.editorial_release;
+      const seconds = release ? Math.max(1, Math.ceil((release.getTime() - Date.now()) / 1000)) : 3600;
+      throw new BudgetExceededError(service, "hourly pacing", seconds);
+    }
+  }
+  if (service === "llm" && config.llmMaxConcurrentCalls > 0) {
+    const limit = config.llmMaxConcurrentCalls;
+    const reserve = Math.max(0, Math.min(limit, config.llmReportConcurrentReserve));
+    const [pending] = await tx<{ total: number; editorial: number }[]>`
+      SELECT count(*) AS total, count(*) FILTER (WHERE left(purpose,7) <> 'report_') AS editorial
+      FROM receipts WHERE service=${service} AND origin='live' AND status='pending'`;
+    if (Number(pending!.total) >= limit || !req.purpose.startsWith("report_") && Number(pending!.editorial) >= limit - reserve) {
+      throw new ReceiptBusyError("Default model concurrency is full; retry without sending");
+    }
+  }
 }
 
 /**
@@ -123,13 +171,13 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       }
       if (existing.status === "unknown") return { kind: "unknown" as const, row: existing };
       // failed: the provider did not take the request, or its answer was unusable; a new attempt is allowed.
-      await checkBudget(tx, req.service);
+      await checkBudget(tx, req);
       const [r] = await tx<{ attempts: number }[]>`
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
       const attemptId = await startAttempt(tx, existing.id, r!.attempts, req);
       return { kind: "call" as const, id: existing.id, attemptId };
     }
-    await checkBudget(tx, req.service);
+    await checkBudget(tx, req);
     const [row] = await tx<{ id: number }[]>`
       INSERT INTO receipts (logical_key, service, model, purpose, subject, status, request, attempts)
       VALUES (${logicalKey}, ${req.service}, ${req.model ?? null}, ${req.purpose}, ${req.subject ?? null}, 'pending',

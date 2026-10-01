@@ -312,3 +312,17 @@ test("queued backfill completions survive an exhausted budget without hiding rev
   assert.equal((await processArticle(id, { attemptTag: `fresh-explicit-${T}` })).state, "block");
   assert.ok(provider.hits() > revisedHits, "an explicit re-evaluation remains paid");
 });
+
+test("a current received analysis gets queue priority without promoting an old revision", async () => {
+  const id = await article("OFFTOPIC", { url: `https://example.com/continuing-${T}`, publishedAt: new Date() });
+  const [a] = await sql`SELECT revision FROM articles WHERE id=${id}`;
+  await sql`INSERT INTO receipts(logical_key,service,purpose,subject,status,response)
+    VALUES(${`priority-${T}`},'test','prefilter_article',${`article:${id}@${a!.revision}`},'received','{}')`;
+  await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.analyze} AND singleton_key=${id}`;
+  await queueProcessing(id, { step: "analyze" });
+  assert.equal((await sql`SELECT priority FROM pgboss.job WHERE name=${QUEUES.analyze} AND singleton_key=${id}`)[0]!.priority, 1);
+  await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.analyze} AND singleton_key=${id}`;
+  await sql`UPDATE articles SET revision=revision+1 WHERE id=${id}`;
+  await queueProcessing(id, { step: "analyze" });
+  assert.equal((await sql`SELECT priority FROM pgboss.job WHERE name=${QUEUES.analyze} AND singleton_key=${id}`)[0]!.priority, 0);
+});

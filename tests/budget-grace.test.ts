@@ -23,7 +23,15 @@ test("temporary update room preserves real receipts and automatically restores t
     const stateFile = path.join(directory, "filmtech-budget-grace-20260930", "state.json");
     const state = JSON.parse(await readFile(stateFile, "utf8"));
     // Simulate an expired baseline without editing any request or origin in the database.
-    await writeFile(stateFile, JSON.stringify({ ...state, baselineMaxId: 0, expiresAt: new Date(Date.now() - 1000).toISOString() }));
+    const expired = { ...state, baselineMaxId: 0, expiresAt: new Date(Date.now() - 1000).toISOString(),
+      extra: { perDay: 216, expiresAt: new Date(Date.now() + 60_000).toISOString() } };
+    await writeFile(stateFile, JSON.stringify(expired));
+    const extended = await run("--tick");
+    assert.equal(extended.status, "temporary-room");
+    assert.equal(extended.limits.perDay, original!.per_day + 216);
+    assert.equal((await sql`SELECT value FROM settings WHERE key='llm_budget_grace'`)[0]!.value.extra.perDay, 216);
+    expired.extra.expiresAt = new Date(Date.now() - 1000).toISOString();
+    await writeFile(stateFile, JSON.stringify(expired));
     const restored = await run("--tick");
     assert.equal(restored.status, "restored");
     const [budget] = await sql`SELECT * FROM budgets WHERE service='llm'`;
@@ -31,8 +39,10 @@ test("temporary update room preserves real receipts and automatically restores t
     assert.equal(budget!.per_hour, original!.per_hour);
     assert.equal(budget!.per_day, original!.per_day);
     assert.equal(budget!.note, original!.note);
+    assert.equal((await sql`SELECT 1 FROM settings WHERE key='llm_budget_grace'`).length, 0);
     assert.deepEqual(await sql`SELECT count(*)::int AS n FROM receipt_attempts`, usageBefore);
   } finally {
+    await sql`DELETE FROM settings WHERE key='llm_budget_grace'`;
     await sql`UPDATE budgets SET per_minute=${original!.per_minute},per_hour=${original!.per_hour},per_day=${original!.per_day},note=${original!.note} WHERE service='llm'`;
     await rm(directory, { recursive: true });
   }

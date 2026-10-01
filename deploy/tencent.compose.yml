@@ -7,6 +7,10 @@ services:
   api:
     environment:
       LLM_BASE_URL: http://172.17.0.1:3320/v1
+      LLM_HOURLY_CALL_LIMIT: "12"
+      LLM_REPORT_HOURLY_RESERVE: "2"
+      LLM_MAX_CONCURRENT_CALLS: "4"
+      LLM_REPORT_CONCURRENT_RESERVE: "1"
   worker:
     stop_grace_period: 390s
     # The host's existing egress proxy only listens on loopback. This worker has
@@ -20,6 +24,10 @@ services:
       LLM_BASE_URL: http://172.17.0.1:3320/v1
       LLM_MODEL: gpt-5.6-sol
       LLM_TIMEOUT_MS: "330000"
+      LLM_HOURLY_CALL_LIMIT: "12"
+      LLM_REPORT_HOURLY_RESERVE: "2"
+      LLM_MAX_CONCURRENT_CALLS: "4"
+      LLM_REPORT_CONCURRENT_RESERVE: "1"
       LLM_EXTRA_JSON: '{"reasoning_effort":"medium"}'
       MODEL_CALLS_ENABLED: "true"
       COLLECT_ENABLED: "true"
