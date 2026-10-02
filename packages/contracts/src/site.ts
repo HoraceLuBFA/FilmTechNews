@@ -138,6 +138,8 @@ export interface OutlineEntry {
 }
 
 export interface ItemDetail extends ItemSummary {
+  /** One optional source illustration, independent of permission to display the article's full text. */
+  leadImage?: MediaView | null;
   readingMode: "full" | "summary-only";
   author: string | null;
   language: string | null;

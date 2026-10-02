@@ -91,6 +91,27 @@ test("site reading sends one language while exports retain both, including after
   assert.equal((await get(`/api/site/items/${id}/original`)).status, 404);
 });
 
+test("summary illustrations use signed source pictures without revealing full text or excluded material", async () => {
+  const id = await article();
+  await sql`UPDATE sources SET site_fulltext=false, syndicate_fulltext=false WHERE id=${SOURCE}`;
+  await sql`UPDATE articles SET body_html='<p>PRIVATE BODY</p><img src="https://example.org/diagram.jpg" width="1200" height="800" alt="Workflow diagram">' WHERE id=${id}`;
+  await publishArticle(id, released());
+  const detail = JSON.parse((await get(`/api/site/items/${id}`)).body);
+  assert.equal(detail.body, null);
+  assert.equal(detail.leadImage.alt, 'Workflow diagram');
+  assert.match(detail.leadImage.url, /^\/api\/img-proxy\?/);
+  assert.match(detail.leadImage.srcSet, /mode=image-720.*720w.*mode=image-1200.*1200w/);
+  assert.equal(detail.leadImage.width, 1200);
+  assert.ok(!JSON.stringify(detail).includes('PRIVATE BODY'));
+  await sql`UPDATE articles SET body_html='<p>PRIVATE BODY</p>', media='[]'::jsonb WHERE id=${id}`;
+  assert.equal(JSON.parse((await get(`/api/site/items/${id}`)).body).leadImage, null);
+  await sql`UPDATE publications SET visibility='summary-only' WHERE article_id=${id}`;
+  assert.equal(JSON.parse((await get(`/api/site/items/${id}`)).body).leadImage, null);
+  await setVisibility(id, { visibility: 'withdrawn', reason: 'test', version: 0 }, 'test');
+  assert.equal((await get(`/api/site/items/${id}`)).status, 404);
+  await sql`UPDATE sources SET site_fulltext=true, syndicate_fulltext=true WHERE id=${SOURCE}`;
+});
+
 test("revoking a source's licence takes its articles off every exit", async () => {
   const id = await article();
   await publishArticle(id, released());

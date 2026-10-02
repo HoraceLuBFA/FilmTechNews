@@ -2,7 +2,8 @@
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@aihot/contracts/site";
 import TurndownService from "turndown";
 import { sql } from "../db.ts";
-import { proxyBodyImages } from "../media/imgproxy.ts";
+import { proxyBodyImages, proxiedImage, proxiedImageSet } from "../media/imgproxy.ts";
+import { selectLeadImage } from "../content/images.ts";
 import { textToHtml } from "../content/sanitize.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, xView, type ItemRow } from "./items.ts";
 import { itemUrl } from "./links.ts";
@@ -10,6 +11,7 @@ import { hasItemPage } from "./rules.ts";
 import { SITE } from "@aihot/industry/site";
 
 interface DetailRow extends ItemRow {
+  media: unknown;
   body_html: string | null;
   body_text: string | null;
   body_status: string;
@@ -37,7 +39,7 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
-    SELECT ${ITEM_COLUMNS}, a.body_html, a.body_text, a.body_status, tr.body_html AS tr_html, tr.complete AS tr_complete
+    SELECT ${ITEM_COLUMNS}, a.media, a.body_html, a.body_text, a.body_status, tr.body_html AS tr_html, tr.complete AS tr_complete
     ${ITEM_FROM}
     WHERE p.article_id = ${id}`;
   return row ?? null;
@@ -56,6 +58,7 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
   if (row.visibility === "summary-only") {
     const detail: ItemDetail = {
       ...summary,
+      leadImage: null,
       reason: null,
       tags: [],
       x: null,
@@ -125,8 +128,14 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
     }
   }
 
+  const lead = row.channel === "news" && row.eligible ? selectLeadImage(row.body_html, row.media, row.url) : null;
   const detail: ItemDetail = {
     ...summary,
+    leadImage: lead ? {
+      kind: "image", url: proxiedImage(lead.url, "image-720")!, fullUrl: proxiedImage(lead.url, "full")!,
+      srcSet: proxiedImageSet(lead.url, "hero") ?? undefined,
+      width: lead.width ?? null, height: lead.height ?? null, alt: lead.alt ?? null, poster: null,
+    } : null,
     readingMode: "full",
     author: row.author,
     language: row.language,

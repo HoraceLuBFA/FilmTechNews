@@ -16,6 +16,7 @@ import { StarButton } from "../features/feed/parts";
 import { GroupSources } from "../features/feed/ReadingGroup";
 import { StoryFollowups } from "../features/item/StoryFollowups";
 import { MediaGallery } from "../features/item/MediaGallery";
+import { LeadImage } from "../features/item/LeadImage";
 import { QuotedPost } from "../features/item/QuotedPost";
 import { IconArrowLeft, IconCopy, IconDownload, IconExternal, IconImage, IconMenu, IconShare } from "../components/icons";
 
@@ -306,6 +307,7 @@ export default function ItemPage() {
           {item.summary && (
             <section className={isX ? "mt-4" : "mt-7 xl:mt-8"}>
               <div className="mb-2 text-[12px] font-semibold text-accent">{isX ? "摘要" : "中文摘要"}</div>
+              {!isX && item.leadImage && <LeadImage image={item.leadImage} sourceName={item.source.name} originalUrl={item.links.original} />}
               <div className="space-y-5 text-[18px] leading-[1.8] text-ink xl:text-[20px]">
                 {item.summary.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
               </div>
