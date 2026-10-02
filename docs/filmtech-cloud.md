@@ -303,3 +303,15 @@ apps/web/server.ts 现按 HTTP 各跳隔离要求过滤请求与响应的 Connec
 验收快照中 533 篇公开文章有 392 篇可选出候选配图，141 篇没有合适候选。此计数来自已存内容，不是逐张联网下载成功率；页面对无法加载的图片自动省略。API、web、worker 已更新至同一新镜像；更新前核对没有在途模型请求，并按原有宽限时间平稳停止 worker 后重建。每日 1000 次、每小时 40 次及报刊预留两次、medium 档位、采集和模型开关、Codex 服务与监工 timer 均保持原配置，更新后没有未知结果请求。数据库无需迁移，私有日志匿名仍为 401。
 
 五处运行源文件与本机哈希一致。服务器 .data/summary-image-20261002/original/ 和 baseline.json 保留原文件及哈希，build-final.log、deploy.log 与 stop-worker.log 为实际构建部署记录；原镜像分别为 filmtechnews-summary-api-rollback:20261002、filmtechnews-summary-web-rollback:20261002、filmtechnews-summary-worker-rollback:20261002。回退先核对后续改动，恢复本次原文件并移除新增 content/images.ts 和 LeadImage.tsx，使用原 API/web/worker 镜像且保留原 Compose 叠加配置，不恢复数据库、环境或监工配置。首次浏览器验证脚本的未插值变量导致检查失败，校正脚本后完整重跑；云端最终使用修补坏图行为后的第二次构建。证据在本机私有 .data/verification/summary-image/，不提交抓取正文、运行数据和临时图片。
+
+## 2026-10-02 未知回执放行后的文章恢复
+
+21:05、21:10 的历史告警来自文章评分请求的未知结果。桥接记录表明 CLI 退出码为 1，未保留足以判断具体上游原因的内容。21:40 的 ops.recover 已将该回执自动放行，但旧恢复函数只识别 analyze_article，没有识别当前分步的 score_article，因此没有重新入队，文章停留在 failed。监工此前只观察最近一小时未知请求与整体推进，未知状态解除后也未持续提示这篇失败稿件。
+
+admin/runs.ts 现支持 prefilter_article、score_article、structure_article、understand_article、summarize_article 及旧 analyze_article。只恢复版本匹配且失败原因指向该回执的文章；放行回执、处理尝试和文章重置、正式队列写入放在同一事务，入队失败时整体回滚。恢复沿用原文章版本和已有成功回执，不添加付费重评标签。同一请求未知超过三十分钟只自动放行一次，第二次未知仍留待管理员核查。监工另对尚未恢复的失败材料持续告警，不因其他任务在途、额度等待或最近一小时没有未知请求而清除提示；沿用既有邮件确认与恢复逻辑，没有批量重试永久拒绝或其他失败。
+
+API、worker 已更新，主机监工脚本同步更新，web 容器保持原进程。针对修复前已放行的回执 6065，通过核对原版本、目的、回执状态及失败原因的事务，将对应 Sigma Aizu 镜头稿重新提交正式分析队列并写入审计；仅提高这一个修复任务的队列优先级，所有模型请求仍经过原回执与预算。评分回执完成第二次尝试，原预筛选、结构化及第一份评分均复用，只补齐缺失评分和摘要。文章于北京时间 23:07:45 完成 revision 2 分析及公开投影，relevance=pass、eligible=true、selected=false，按原门槛进入全部动态，未强制精选。公网详情已实际读取到中文标题和 373 字摘要。
+
+179 项隔离后端与桥接测试、20 项前端测试、17 项监工测试、类型检查、构建及公网 33 项 smoke 通过。回归覆盖全部分步和旧用途、成功结果复用、第二次未知停止、旧版本和无关失败不重置、人工放行审计，以及入队失败的完整回滚。一次重复使用旧测试库的全量检查受既有报刊测试残留样本影响，最终重新创建空的 _test 库、迁移后全量通过，没有改变测试断言。23:08:07 的云端监工样本为正常，失败材料及未知回执均为 0，534 篇公开文章；等待原因是滚动小时内容额度已满。21:05、21:10 的真实历史异常保留。私有日志匿名访问仍为 401，运行文件哈希与仓库一致；每日 1000 次、每小时 40 次及报刊预留两次、处理档位、采集开关、桥接服务和监工 timer 保持原配置。
+
+服务器 .data/receipt-recovery-20261002/original/ 保留原源码和监工脚本，build.log、stop-worker.log、deploy.log 为实际构建部署记录；原 API、worker 镜像分别保留为 filmtechnews-recovery-api-rollback:20261002、filmtechnews-recovery-worker-rollback:20261002。回退先核对后续变更，只恢复本次代码、对应镜像及监工脚本，按原 Compose 叠加文件平稳停止和恢复 worker；不覆盖数据库、环境文件、历史监工记录或已完成文章，也不再次放行这份回执。私有验收证据与单篇修复脚本在 .data/verification/receipt-recovery/，不提交运行数据或原文。

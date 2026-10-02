@@ -19,6 +19,17 @@ class WatchdogTests(unittest.TestCase):
     def test_hourly_wait_is_not_a_failure(self):
         self.assertEqual(watchdog.problems(self.sample), [])
 
+    def test_failed_material_remains_reported_while_other_work_continues(self):
+        self.sample['queue'] = {'pending': 100, 'failed': 1}
+        self.sample['usage']['pending_calls'] = 1
+        self.assertEqual(watchdog.processing_status(self.sample)['code'], 'processing')
+        self.assertEqual(watchdog.problems(self.sample), ['有失败材料尚未恢复，请检查处理队列'])
+        self.sample['usage']['pending_calls'] = 0
+        self.assertEqual(watchdog.processing_status(self.sample)['code'], 'hourly_limit')
+        self.assertEqual(len(watchdog.problems(self.sample)), 1)
+        self.sample['queue']['failed'] = 0
+        self.assertEqual(watchdog.problems(self.sample), [])
+
     def test_stalled_processing_with_available_slots_is_reported(self):
         self.sample['usage']['content_hour'] = 20
         self.assertTrue(any('九十五分钟' in p for p in watchdog.problems(self.sample)))

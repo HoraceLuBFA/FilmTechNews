@@ -83,20 +83,30 @@ export async function runsOverview() {
  * failed, so the next attempt calls again; an article that stopped on it goes straight back to
  * processing (one action, not two). Only an unknown receipt is released, once.
  */
+const ARTICLE_ANALYSIS_PURPOSES = new Set([
+  "analyze_article", "prefilter_article", "score_article", "structure_article", "understand_article", "summarize_article",
+]);
+
 async function release(id: number, error: string, actor: string, note: string, billed: boolean | null) {
-  const [before] = await sql<{ subject: string | null; purpose: string }[]>`
-    UPDATE receipts SET status = 'failed', error = ${error}, updated_at = now() WHERE id = ${id} AND status = 'unknown' RETURNING subject, purpose`;
-  if (!before) return null;
-  await sql`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown'`;
-  const article = before.purpose === "analyze_article" ? /^article:([^@]+)@/.exec(before.subject ?? "")?.[1] : undefined;
-  let requeued = false;
-  if (article) {
-    const [a] = await sql`UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
-                          WHERE id = ${article} AND processing_state = 'failed' RETURNING id`;
-    if (a) requeued = !!(await queueProcessing(article, { step: "analyze" }));
-  }
-  await audit(actor, "receipt.release", `receipt:${id}`, note, { status: "unknown" }, { status: "failed", billed, requeued });
-  return { id, status: "failed", subject: before.subject, purpose: before.purpose, requeued };
+  // Releasing the receipt and handing its stopped article back to processing commit together.
+  // An old revision or an unrelated failure must not be reset by this recovery.
+  const done = await sql.begin(async (tx) => {
+    const [before] = await tx<{ subject: string | null; purpose: string }[]>`
+      UPDATE receipts SET status = 'failed', error = ${error}, updated_at = now() WHERE id = ${id} AND status = 'unknown' RETURNING subject, purpose`;
+    if (!before) return null;
+    await tx`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown'`;
+    const article = ARTICLE_ANALYSIS_PURPOSES.has(before.purpose) ? /^article:([^@]+)@(\d+)$/.exec(before.subject ?? "") : null;
+    let requeued = false;
+    if (article) {
+      const [a] = await tx`UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
+                            WHERE id = ${article[1]!} AND revision = ${Number(article[2])} AND processing_state = 'failed'
+                              AND processing_error = ${`receipt ${id} outcome unknown`} RETURNING id`;
+      if (a) requeued = !!(await queueProcessing(article[1]!, { step: "analyze", db: tx }));
+    }
+    return { id, status: "failed", subject: before.subject, purpose: before.purpose, requeued };
+  });
+  if (done) await audit(actor, "receipt.release", `receipt:${id}`, note, { status: "unknown" }, { status: "failed", billed, requeued: done.requeued });
+  return done;
 }
 
 /** Admin, after checking the provider's console: records whether it was billed and releases it. */

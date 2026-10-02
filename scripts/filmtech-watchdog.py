@@ -83,6 +83,7 @@ def problems(s):
     if s['daily_limit'] != 1000: found.append('日常调用基准偏离已确认的1000次')
     if u['stale_calls']: found.append('模型请求超过十分钟仍未返回')
     if u.get('failed_hour', 0) >= 3 or u.get('unknown_hour', 0): found.append('本小时模型调用连续失败或存在未知结果')
+    if s.get('queue', {}).get('failed', 0): found.append('有失败材料尚未恢复，请检查处理队列')
     if s['waiting'] and u['day'] >= s['daily_limit']: found.append('日常滚动额度耗尽，材料仍在等待')
     elif (s['waiting'] and u['content_hour'] < s.get('content_hour_limit', 38) and (s.get('analysis_age') or 0) > 5700):
         found.append('有待处理材料且仍有调用空间，但分析超过九十五分钟未推进')
