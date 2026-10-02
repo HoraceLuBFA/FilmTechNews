@@ -125,6 +125,12 @@ export default function ItemPage() {
   const isX = item.channel === "x" && !!item.x;
   const publishedIso = item.publishedAt ?? item.discoveredAt;
   const summaryOnly = item.readingMode === "summary-only";
+  const emptyReading = !isX && !item.summary?.trim() && !bodyHtml?.trim();
+  const emptyMessage = item.contentState === "not-included"
+    ? { title: "这条内容未收录", text: "这条内容未纳入影视技术日报的收录范围。您可以前往来源网站阅读原文。" }
+    : item.contentState === "processing"
+      ? { title: "内容正在整理", text: "这条内容的中文摘要尚未完成。您可以先阅读原文，或浏览已收录的动态。" }
+      : { title: "暂无可阅读内容", text: "这条内容暂时没有可展示的中文摘要或正文。您可以前往来源网站阅读原文。" };
   const showOutline = item.outline.length >= 3;
   const originalLabel = isX ? "在 X 查看原推" : "打开原文";
 
@@ -304,7 +310,20 @@ export default function ItemPage() {
           {!isX && <h1 className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink lg:text-[32px] lg:leading-[1.34] xl:text-[36px] xl:leading-[1.3]">{item.title}</h1>}
           {!isX && item.originalTitle && <p className="mt-2.5 text-[14px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
 
-          {item.summary && (
+          {emptyReading && (
+            <section aria-label="内容状态" className="mt-7 rounded-card border border-line bg-bg-sunk/60 p-5 lg:p-6 xl:mt-8">
+              <h2 className="text-[17px] font-semibold leading-relaxed text-ink">{emptyMessage.title}</h2>
+              <p className="mt-2 text-[15px] leading-[1.8] text-ink-2">{emptyMessage.text}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <a href={item.links.original} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-2 rounded-full bg-accent px-4 text-[14px] font-medium text-accent-contrast transition-colors hover:bg-accent-ink">
+                  打开原文 <IconExternal size={15} />
+                </a>
+                <Link to="/all" className="inline-flex h-10 items-center rounded-full border border-line px-4 text-[14px] font-medium text-ink-2 transition-colors hover:bg-bg-muted">浏览全部动态</Link>
+              </div>
+            </section>
+          )}
+
+          {item.summary?.trim() && (
             <section className={isX ? "mt-4" : "mt-7 xl:mt-8"}>
               <div className="mb-2 text-[12px] font-semibold text-accent">{isX ? "摘要" : "中文摘要"}</div>
               {!isX && item.leadImage && <LeadImage image={item.leadImage} sourceName={item.source.name} originalUrl={item.links.original} />}
@@ -327,7 +346,7 @@ export default function ItemPage() {
             </div>
           )}
 
-          {summaryOnly && <p className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[13.5px] leading-relaxed text-ink-3">中文摘要由模型依据已获取的原文生成。核对图表、完整示例或原始表述时，可查看原文。</p>}
+          {summaryOnly && item.summary?.trim() && <p className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[13.5px] leading-relaxed text-ink-3">中文摘要由模型依据已获取的原文生成。核对图表、完整示例或原始表述时，可查看原文。</p>}
 
           {item.body && bodyHtml && (
             <section className="mt-9 border-t border-line pt-4 xl:mt-10">

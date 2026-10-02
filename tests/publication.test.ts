@@ -112,6 +112,43 @@ test("summary illustrations use signed source pictures without revealing full te
   await sql`UPDATE sources SET site_fulltext=true, syndicate_fulltext=true WHERE id=${SOURCE}`;
 });
 
+test("empty detail pages expose a safe availability state while keeping links and full-text permissions", async () => {
+  const { articleId: id } = await upsertMaterial({ sourceId: SOURCE, url: `https://example.com/${T}-empty`,
+    title: 'An unsummarised article', bodyText: BODY, bodyHtml: `<p>${BODY}</p>`, bodyStatus: 'ok', via: 'fetch' });
+  await sql`UPDATE sources SET site_fulltext=false WHERE id=${SOURCE}`;
+  await publishArticle(id);
+  const read = async () => {
+    const res = await get(`/api/site/items/${id}`);
+    assert.equal(res.status, 200, 'the original detail URL remains valid');
+    assert.ok(!res.body.includes(BODY) && !res.body.includes('PRIVATE FAILURE'));
+    return JSON.parse(res.body);
+  };
+  assert.equal((await read()).contentState, 'processing');
+  await sql`UPDATE articles SET processing_state='blocked' WHERE id=${id}`;
+  const blocked = await read();
+  assert.equal(blocked.contentState, 'not-included');
+  assert.equal(blocked.summary, null);
+  assert.equal(blocked.body, null);
+  assert.equal(blocked.indexable, false);
+  assert.equal(blocked.markdownAvailable, false);
+  assert.ok(blocked.links.original.endsWith('-empty'));
+  const original = JSON.parse((await get(`/api/site/items/${id}/original`)).body);
+  assert.equal(original.contentState, 'not-included');
+  assert.equal(original.body, null);
+  await sql`UPDATE articles SET processing_state='failed', processing_error='PRIVATE FAILURE' WHERE id=${id}`;
+  assert.equal((await read()).contentState, 'unavailable');
+  await sql`UPDATE publications SET visibility='summary-only' WHERE article_id=${id}`;
+  assert.equal((await read()).contentState, 'unavailable');
+  await sql`UPDATE publications SET summary='已有中文摘要' WHERE article_id=${id}`;
+  assert.equal((await read()).contentState, 'ready');
+  await sql`UPDATE sources SET site_fulltext=true WHERE id=${SOURCE}`;
+  await publishArticle(id);
+  const full = JSON.parse((await get(`/api/site/items/${id}`)).body);
+  assert.equal(full.summary, null);
+  assert.equal(full.contentState, 'ready', 'a permitted readable body needs no empty-state notice');
+  assert.ok(full.body.original.includes(BODY));
+});
+
 test("revoking a source's licence takes its articles off every exit", async () => {
   const id = await article();
   await publishArticle(id, released());

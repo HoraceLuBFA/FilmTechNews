@@ -15,6 +15,7 @@ interface DetailRow extends ItemRow {
   body_html: string | null;
   body_text: string | null;
   body_status: string;
+  processing_state: string;
   tr_html: string | null;
   tr_complete: boolean | null;
 }
@@ -39,10 +40,17 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
-    SELECT ${ITEM_COLUMNS}, a.media, a.body_html, a.body_text, a.body_status, tr.body_html AS tr_html, tr.complete AS tr_complete
+    SELECT ${ITEM_COLUMNS}, a.media, a.body_html, a.body_text, a.body_status, a.processing_state, tr.body_html AS tr_html, tr.complete AS tr_complete
     ${ITEM_FROM}
     WHERE p.article_id = ${id}`;
   return row ?? null;
+}
+
+function contentState(row: DetailRow, body: ItemDetail["body"]): NonNullable<ItemDetail["contentState"]> {
+  if (row.summary?.trim() || body?.zh?.trim() || body?.original?.trim()) return "ready";
+  if (row.processing_state === "blocked") return "not-included";
+  if (row.processing_state === "new") return "processing";
+  return "unavailable";
 }
 
 /**
@@ -58,6 +66,7 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
   if (row.visibility === "summary-only") {
     const detail: ItemDetail = {
       ...summary,
+      contentState: contentState(row, null),
       leadImage: null,
       reason: null,
       tags: [],
@@ -131,6 +140,7 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
   const lead = row.channel === "news" && row.eligible ? selectLeadImage(row.body_html, row.media, row.url) : null;
   const detail: ItemDetail = {
     ...summary,
+    contentState: contentState(row, body),
     leadImage: lead ? {
       kind: "image", url: proxiedImage(lead.url, "image-720")!, fullUrl: proxiedImage(lead.url, "full")!,
       srcSet: proxiedImageSet(lead.url, "hero") ?? undefined,

@@ -138,6 +138,8 @@ export interface OutlineEntry {
 }
 
 export interface ItemDetail extends ItemSummary {
+  /** Reader-facing availability; no internal failure or scoring details. */
+  contentState?: "ready" | "not-included" | "processing" | "unavailable";
   /** One optional source illustration, independent of permission to display the article's full text. */
   leadImage?: MediaView | null;
   readingMode: "full" | "summary-only";
