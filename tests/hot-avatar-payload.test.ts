@@ -67,3 +67,16 @@ test('faces are 精选组 sources by tier (T1, T1.5, T2), at most 6; 氛围组 o
   // The six visible faces get responsive images (T1 without avatar shows an initial); the seventh 精选组 face does not.
   assert.deepEqual(full.filter(p=>p.iconSrcSet).map(p=>p.name),[5,3,1,6,8].map(name));
 });
+
+test('a home ranking with one or two real entries stays visible; an empty ranking stays hidden', async () => {
+  assert.ok(rankingId !== undefined);
+  const id = rankingId;
+  const [saved] = await sql<{entries: HotEntry[]}[]>`SELECT entries FROM hot_rankings WHERE id=${id}`;
+  for (const count of [0, 1, 2, 3]) {
+    const entries = saved!.entries.slice(0, count);
+    await sql`UPDATE hot_rankings SET entries=${sql.json(entries as never)} WHERE id=${id}`;
+    const strip = await loadHotStrip();
+    if (!count) assert.equal(strip, null);
+    else assert.deepEqual(strip!.map(e=>[e.rank,e.title,e.heat,e.trend]), entries.map(e=>[e.rank,e.title,e.heat,e.trend]));
+  }
+});

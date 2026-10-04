@@ -11,6 +11,11 @@ export interface JinaPage {
   markdown: string;
 }
 
+/** Optional reader fallback: missing credentials mean direct extraction only. */
+export function jinaConfigured(): boolean {
+  return !!credential("collectors", "JINA_API_KEY");
+}
+
 export function parseJinaText(text: string): JinaPage {
   const header = text.split(/\nMarkdown Content:\n/)[0] ?? "";
   const body = text.includes("\nMarkdown Content:\n") ? text.split(/\nMarkdown Content:\n/).slice(1).join("\nMarkdown Content:\n") : text;

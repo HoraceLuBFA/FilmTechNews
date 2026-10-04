@@ -119,10 +119,10 @@ export async function rankingExtras(ranking: HotRanking) {
   };
 }
 
-/** Home "current hot" strip: 3–5 entries from the same ranking, hidden when there are fewer than 3. */
+/** Home "current hot" strip: up to five real entries from the same ranking; hide only an empty ranking. */
 export async function loadHotStrip(): Promise<HotStripEntry[] | null> {
   const ranking = await latestHotRanking();
-  if (!ranking || ranking.entries.length < 3) return null;
+  if (!ranking || ranking.entries.length === 0) return null;
   const extras = await rankingExtras(ranking);
   return ranking.entries.slice(0, 5).map((e) => ({
     rank: e.rank,

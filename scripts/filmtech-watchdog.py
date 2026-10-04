@@ -29,7 +29,15 @@ queue AS (SELECT count(*) FILTER(WHERE processing_state='new') AS pending,
  count(*) FILTER(WHERE processing_state='failed') AS failed,
  count(*) FILTER(WHERE processing_state='new' AND processing_retry_at>now()) AS deferred,
  count(*) FILTER(WHERE processing_state='new' AND processing_error LIKE 'extract:%') AS extraction_waiting,
- min(processing_retry_at) FILTER(WHERE processing_state='new' AND processing_retry_at>now()) AS retry_at
+ min(processing_retry_at) FILTER(WHERE processing_state='new' AND processing_retry_at>now()) AS retry_at,
+ count(*) FILTER(WHERE processing_state='new' AND (processing_retry_at IS NULL OR processing_retry_at<=now())
+   AND coalesce(processing_error,'') NOT LIKE 'extract:%') AS analysis_ready,
+ extract(epoch FROM now()-min(coalesce(processing_retry_at,created_at)) FILTER(WHERE processing_state='new'
+   AND (processing_retry_at IS NULL OR processing_retry_at<=now()) AND coalesce(processing_error,'') NOT LIKE 'extract:%'))::int AS analysis_ready_age,
+ count(*) FILTER(WHERE processing_state='new' AND (processing_retry_at IS NULL OR processing_retry_at<=now())
+   AND processing_error LIKE 'extract:%') AS extraction_ready,
+ extract(epoch FROM now()-min(coalesce(processing_retry_at,created_at)) FILTER(WHERE processing_state='new'
+   AND (processing_retry_at IS NULL OR processing_retry_at<=now()) AND processing_error LIKE 'extract:%'))::int AS extraction_ready_age
  FROM articles WHERE processing_state IN ('new','failed')),
 public AS (SELECT * FROM publications WHERE eligible AND visibility='public' AND (NOT selected OR visible_after<=now()))
 SELECT jsonb_build_object(
@@ -38,6 +46,7 @@ SELECT jsonb_build_object(
  'heartbeat_age',(SELECT extract(epoch FROM now()-updated_at)::int FROM settings WHERE key='heartbeat.worker'),
  'scheduling_age',(SELECT extract(epoch FROM now()-max(finished_at))::int FROM job_runs WHERE job='sources.schedule' AND status='ok'),
  'analysis_age',(SELECT extract(epoch FROM now()-max(created_at))::int FROM analyses WHERE origin='model'),
+ 'extraction_age',(SELECT extract(epoch FROM now()-max(completed_on))::int FROM pgboss.job WHERE name='content.extract-body' AND state IN ('completed','failed')),
  'analysis_total',(SELECT count(*) FROM analyses WHERE origin='model'),
  'analyzed_hour',(SELECT count(*) FROM analyses WHERE origin='model' AND created_at>now()-interval '1 hour'),
  'last_analysis_at',(SELECT max(created_at) FROM analyses WHERE origin='model'),
@@ -85,8 +94,17 @@ def problems(s):
     if u.get('failed_hour', 0) >= 3 or u.get('unknown_hour', 0): found.append('本小时模型调用连续失败或存在未知结果')
     if s.get('queue', {}).get('failed', 0): found.append('有失败材料尚未恢复，请检查处理队列')
     if s['waiting'] and u['day'] >= s['daily_limit']: found.append('日常滚动额度耗尽，材料仍在等待')
-    elif (s['waiting'] and u['content_hour'] < s.get('content_hour_limit', 38) and (s.get('analysis_age') or 0) > 5700):
-        found.append('有待处理材料且仍有调用空间，但分析超过九十五分钟未推进')
+    elif not u.get('pending_calls', 0):
+        q = s.get('queue', {})
+        # Only overdue, runnable analysis counts. A future retry, extraction-only work,
+        # or an article just arriving after a quiet period is not a stalled model pipeline.
+        if (q.get('analysis_ready', 0) and (q.get('analysis_ready_age') or 0) > 5700
+                and u['content_hour'] < s.get('content_hour_limit', 38)
+                and (s.get('analysis_age') is None or s['analysis_age'] > 5700)):
+            found.append('有待处理材料且仍有调用空间，但分析超过九十五分钟未推进')
+        if (q.get('extraction_ready', 0) and (q.get('extraction_ready_age') or 0) > 5700
+                and (s.get('extraction_age') is None or s['extraction_age'] > 5700)):
+            found.append('正文提取任务超过九十五分钟未推进')
     if s['failing_sources']: found.append('有启用来源连续采集失败三次以上')
     for kind, key in s['expected_reports'].items():
         if not any(r['kind'] == kind and r['key'] == key for r in s.get('reports') or []):

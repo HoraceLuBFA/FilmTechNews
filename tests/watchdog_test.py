@@ -14,7 +14,8 @@ class WatchdogTests(unittest.TestCase):
         self.sample = {'services': {'api': True, 'worker': True}, 'http_ok': True, 'db_ok': True,
                        'daily_limit': 1000, 'usage': {'day': 350, 'hour': 39, 'content_hour': 38, 'stale_calls': 0},
                        'heartbeat_age': 60, 'scheduling_age': 30, 'analysis_age': 6000,
-                       'waiting': 100, 'failing_sources': 0, 'expected_reports': {}, 'reports': []}
+                       'waiting': 100, 'queue': {'pending': 100, 'analysis_ready': 100, 'analysis_ready_age': 6000},
+                       'failing_sources': 0, 'expected_reports': {}, 'reports': []}
 
     def test_hourly_wait_is_not_a_failure(self):
         self.assertEqual(watchdog.problems(self.sample), [])
@@ -33,6 +34,36 @@ class WatchdogTests(unittest.TestCase):
     def test_stalled_processing_with_available_slots_is_reported(self):
         self.sample['usage']['content_hour'] = 20
         self.assertTrue(any('九十五分钟' in p for p in watchdog.problems(self.sample)))
+
+    def test_future_retry_and_extraction_only_are_not_model_stalls(self):
+        self.sample['usage']['content_hour'] = 0
+        self.sample['queue'] = {'pending': 1, 'deferred': 1, 'extraction_waiting': 1, 'analysis_ready': 0}
+        self.assertEqual(watchdog.problems(self.sample), [])
+        self.sample['queue'].update(deferred=0, extraction_ready=1, extraction_ready_age=30)
+        self.sample['extraction_age'] = 60
+        self.assertEqual(watchdog.problems(self.sample), [])
+
+    def test_new_arrival_after_quiet_period_and_inflight_work_are_not_stalls(self):
+        self.sample['usage']['content_hour'] = 0
+        self.sample['analysis_age'] = 20000
+        self.sample['queue']['analysis_ready_age'] = 30
+        self.assertEqual(watchdog.problems(self.sample), [])
+        self.sample['queue']['analysis_ready_age'] = 20000
+        self.sample['usage']['pending_calls'] = 1
+        self.assertEqual(watchdog.problems(self.sample), [])
+
+    def test_overdue_extraction_without_progress_is_still_reported(self):
+        self.sample['queue'] = {'pending': 1, 'analysis_ready': 0, 'extraction_ready': 1, 'extraction_ready_age': 6000}
+        self.sample['extraction_age'] = 6000
+        self.assertEqual(watchdog.problems(self.sample), ['正文提取任务超过九十五分钟未推进'])
+
+    def test_overdue_work_that_never_started_is_still_reported(self):
+        self.sample['usage']['content_hour'] = 0
+        self.sample['analysis_age'] = None
+        self.assertTrue(any('九十五分钟' in p for p in watchdog.problems(self.sample)))
+        self.sample['queue'] = {'extraction_ready': 1, 'extraction_ready_age': 6000}
+        self.sample['extraction_age'] = None
+        self.assertEqual(watchdog.problems(self.sample), ['正文提取任务超过九十五分钟未推进'])
 
     def test_daily_exhaustion_with_waiting_articles_is_reported(self):
         self.sample['usage']['day'] = 1000

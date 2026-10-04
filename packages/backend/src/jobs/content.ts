@@ -185,7 +185,7 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
     const { articleId, attemptTag } = job.data;
     try {
       const result = await processArticle(articleId, { attemptTag });
-      if (result.state !== "unknown-receipt") {
+      if (result.state !== "unknown-receipt" && result.state !== "fetching-body") {
         await sql`UPDATE articles SET processing_attempts = 0, processing_retry_at = NULL, processing_queued_at = NULL WHERE id = ${articleId}`;
       }
       return result;
@@ -206,6 +206,9 @@ export async function registerExtractionJobs(boss: PgBoss) {
     const { articleId } = job.data;
     try {
       const state = await extractArticleBody(articleId);
+      await sql`UPDATE articles SET processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
+                WHERE id = ${articleId} AND processing_state = 'new'
+                  AND (processing_error IS NULL OR processing_error LIKE 'extract:%')`;
       await queueProcessing(articleId, { step: "analyze" });
       return { state };
     } catch (error) {
@@ -215,7 +218,8 @@ export async function registerExtractionJobs(boss: PgBoss) {
           processing_queued_at = NULL, processing_retry_at = now() + interval '10 minutes'
         WHERE id = ${articleId} RETURNING processing_attempts`;
       if ((a?.processing_attempts ?? MAX_EXTRACT_FAILURES) < MAX_EXTRACT_FAILURES) return { state: "retrying" };
-      await sql`UPDATE articles SET body_status = 'unconfirmed', processing_attempts = 0, processing_retry_at = NULL WHERE id = ${articleId} AND body_status = 'pending'`;
+      await sql`UPDATE articles SET body_status = 'unconfirmed', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
+                WHERE id = ${articleId} AND body_status = 'pending'`;
       await queueProcessing(articleId, { step: "analyze" });
       return { state: "unconfirmed" };
     }
