@@ -6,6 +6,8 @@ import { config, credential } from "@aihot/backend/config";
 import { feedbackScreenshot, listFeedback, updateFeedback } from "@aihot/backend/admin/feedback";
 import { Conflict } from "@aihot/backend/admin/sources";
 import { sendProblem } from "../http/respond.ts";
+import { resumePausedArticle } from "@aihot/backend/jobs/content";
+import { ARTICLE_ID_PATTERN } from "@aihot/contracts/taxonomy";
 
 export function registerPrivateLog(app: FastifyInstance) {
   app.register(async (privateApp) => {
@@ -20,6 +22,19 @@ export function registerPrivateLog(app: FastifyInstance) {
       if (req.method === "PATCH" && (req.headers.origin !== new URL(config.siteUrl).origin || (req.headers["sec-fetch-site"] && req.headers["sec-fetch-site"] !== "same-origin"))) {
         return sendProblem(req, reply, { status: 403, code: "forbidden", detail: "same-origin request required" });
       }
+    });
+
+    privateApp.patch("/processing/:id/resume", { bodyLimit: 512 }, async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      const body = req.body as { revision?: unknown; pausedAt?: unknown } | null;
+      if (!ARTICLE_ID_PATTERN.test(id) || !body || !Number.isSafeInteger(body.revision) || Number(body.revision) < 1
+          || typeof body.pausedAt !== "string" || body.pausedAt.length > 60 || !Number.isFinite(Date.parse(body.pausedAt))
+          || Object.keys(body).some(k => k !== "revision" && k !== "pausedAt")) {
+        return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "article version required" });
+      }
+      const jobId = await resumePausedArticle(id, Number(body.revision), body.pausedAt, "private-log:admin");
+      if (!jobId) return sendProblem(req, reply, { status: 409, code: "conflict", detail: "文章状态已变化，请刷新后再操作。" });
+      return { id, jobId };
     });
 
     privateApp.get("/feedback", async (req, reply) => {

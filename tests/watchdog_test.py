@@ -65,6 +65,23 @@ class WatchdogTests(unittest.TestCase):
         self.sample['extraction_age'] = None
         self.assertEqual(watchdog.problems(self.sample), ['正文提取任务超过九十五分钟未推进'])
 
+    def test_paused_article_is_visible_while_other_articles_keep_running(self):
+        self.sample['queue'] = {'pending': 4, 'paused': 1}
+        self.sample['usage']['pending_calls'] = 1
+        self.assertEqual(watchdog.processing_status(self.sample)['code'], 'processing')
+        self.assertTrue(any('循环保护' in p for p in watchdog.problems(self.sample)))
+        self.sample['usage']['pending_calls'] = 0
+        self.sample['queue']['pending'] = 0
+        self.assertEqual(watchdog.processing_status(self.sample)['code'], 'paused')
+
+    def test_pause_email_includes_article_reason_and_recovery_action(self):
+        sample = {'at': '2026-10-04', 'processing_items': [{'id': 'test-article', 'state': 'paused',
+                  'title': '技术演示', 'reason': '无进展交接超限', 'next_action': '核查后恢复'}]}
+        body = watchdog.alert_body(sample, ['循环保护'], 'https://example.invalid/log/')
+        self.assertIn('/items/test-article', body)
+        self.assertIn('无进展交接超限', body)
+        self.assertIn('核查后恢复', body)
+
     def test_daily_exhaustion_with_waiting_articles_is_reported(self):
         self.sample['usage']['day'] = 1000
         self.assertTrue(any('滚动额度耗尽' in p for p in watchdog.problems(self.sample)))

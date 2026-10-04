@@ -27,6 +27,7 @@ usage AS (SELECT count(*) FILTER(WHERE a.id>coalesce((SELECT (value->>'baselineM
  WHERE a.service='llm' AND a.origin='live' AND a.started_at>now()-interval '1 day'),
 queue AS (SELECT count(*) FILTER(WHERE processing_state='new') AS pending,
  count(*) FILTER(WHERE processing_state='failed') AS failed,
+ count(*) FILTER(WHERE processing_state='paused') AS paused,
  count(*) FILTER(WHERE processing_state='new' AND processing_retry_at>now()) AS deferred,
  count(*) FILTER(WHERE processing_state='new' AND processing_error LIKE 'extract:%') AS extraction_waiting,
  min(processing_retry_at) FILTER(WHERE processing_state='new' AND processing_retry_at>now()) AS retry_at,
@@ -38,7 +39,7 @@ queue AS (SELECT count(*) FILTER(WHERE processing_state='new') AS pending,
    AND processing_error LIKE 'extract:%') AS extraction_ready,
  extract(epoch FROM now()-min(coalesce(processing_retry_at,created_at)) FILTER(WHERE processing_state='new'
    AND (processing_retry_at IS NULL OR processing_retry_at<=now()) AND processing_error LIKE 'extract:%'))::int AS extraction_ready_age
- FROM articles WHERE processing_state IN ('new','failed')),
+ FROM articles WHERE processing_state IN ('new','failed','paused')),
 public AS (SELECT * FROM publications WHERE eligible AND visibility='public' AND (NOT selected OR visible_after<=now()))
 SELECT jsonb_build_object(
  'usage',(SELECT to_jsonb(u) FROM usage u),
@@ -55,6 +56,17 @@ SELECT jsonb_build_object(
  'raw_hour',(SELECT count(*) FROM articles WHERE NOT backfill AND created_at>now()-interval '1 hour'),
  'waiting',(SELECT count(*) FROM articles WHERE processing_state IN ('new','failed')),
  'queue',(SELECT to_jsonb(q) FROM queue q),
+ 'processing_items',(SELECT coalesce(jsonb_agg(to_jsonb(p)),'[]'::jsonb) FROM
+   (SELECT a.id,a.revision,a.title,s.name AS source,a.processing_state AS state,a.processing_stage AS stage,
+     a.processing_handoffs AS handoffs,a.processing_no_progress_handoffs AS stalled_handoffs,
+     a.processing_failure_count AS failures,a.processing_progress_at AS progress_at,
+     a.processing_retry_at AS retry_at,a.processing_paused_at AS paused_at,a.processing_pause_reason AS reason,
+     CASE WHEN a.processing_state='paused' THEN '核查来源或故障后恢复；已完成的请求结果会复用'
+       WHEN a.processing_state='failed' THEN '检查后台失败记录；未知请求须按原回执规则核查'
+       WHEN a.processing_retry_at>now() THEN '等待重试时间；正常新稿优先处理'
+       ELSE '等待当前阶段完成' END AS next_action
+   FROM articles a JOIN sources s ON s.id=a.source_id WHERE a.processing_state IN ('new','failed','paused')
+   ORDER BY (a.processing_state='paused') DESC,a.processing_paused_at DESC NULLS LAST,a.discovered_at DESC LIMIT 10) p),
  'public_total',(SELECT count(*) FROM public),
  'last_public_change_at',(SELECT max(updated_at) FROM public),
  'latest_timeline_at',(SELECT max(timeline_at) FROM public),
@@ -93,6 +105,7 @@ def problems(s):
     if u['stale_calls']: found.append('模型请求超过十分钟仍未返回')
     if u.get('failed_hour', 0) >= 3 or u.get('unknown_hour', 0): found.append('本小时模型调用连续失败或存在未知结果')
     if s.get('queue', {}).get('failed', 0): found.append('有失败材料尚未恢复，请检查处理队列')
+    if s.get('queue', {}).get('paused', 0): found.append('有文章触发循环保护，已暂缓处理；其他新稿继续运行')
     if s['waiting'] and u['day'] >= s['daily_limit']: found.append('日常滚动额度耗尽，材料仍在等待')
     elif not u.get('pending_calls', 0):
         q = s.get('queue', {})
@@ -123,6 +136,8 @@ def processing_status(s):
         result['detail'] = '模型请求超时或结果待确认，请查看异常提示。'; return result
     if u.get('pending_calls', 0):
         return {'code': 'processing', 'label': '正在处理', 'detail': '{} 个模型请求在途，采集与摘要任务继续运行。'.format(u['pending_calls']), 'resume_at': None}
+    if not pending and q.get('paused', 0) and not q.get('failed', 0):
+        return {'code': 'paused', 'label': '有文章暂缓处理', 'detail': '异常文章已退出主队列，采集和其他新稿继续运行；请查看单篇处理保护。', 'resume_at': None}
     if not pending:
         return {'code': 'failed' if q.get('failed') else 'idle', 'label': '等待人工处理' if q.get('failed') else '等待新材料',
                 'detail': '{} 篇材料处理失败，需排查后重试。'.format(q['failed']) if q.get('failed') else '当前没有待分析材料，持续按计划检查信源。', 'resume_at': None}
@@ -180,6 +195,15 @@ def atomic(path, value, mode):
     os.chmod(str(temporary), mode)
     os.replace(str(temporary), str(path))
 
+def alert_body(sample, issues, log_url):
+    lines = [sample['at']] + issues
+    for item in sample.get('processing_items', []):
+        if item.get('state') == 'paused':
+            lines.extend(['暂缓文章：' + item['title'], '原因：' + (item.get('reason') or '循环保护'),
+                          '下一步：' + item['next_action'],
+                          '文章：https://filmtech.lumenghe.com/items/' + item['id']])
+    return '\n'.join(lines + ['查看：' + log_url])
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', choices=['sample', 'hourly', 'summary', 'test-email'], default='sample')
@@ -206,7 +230,7 @@ def main():
             if alert['seen'] >= 2 and stamp - alert['sent'] >= 21600:
                 due.append(issue)
         if due:
-            ok = send_email(config, '[FilmTechNews] 运行异常', '{}\n{}\n查看：{}'.format(s['at'], '\n'.join(due), config['log_url']))
+            ok = send_email(config, '[FilmTechNews] 运行异常', alert_body(s, due, config['log_url']))
             state['mail_ok'] = ok; state['mail_at'] = s['at']
             if ok:
                 for issue in due: state['alerts'][issue]['sent'] = stamp
