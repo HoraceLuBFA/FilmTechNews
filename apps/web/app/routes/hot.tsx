@@ -17,7 +17,7 @@ export async function loader({ request }: { request: Request }) {
 
 export function meta() {
   return pageMeta({
-    title: withSubject("热点榜"),
+    title: "热点榜",
     description: `过去 48 小时${SITE.subject}领域的热点事件：热度指数、趋势与相关公开来源。`,
     path: "/hot",
     image: "/og/pages/hot.png",

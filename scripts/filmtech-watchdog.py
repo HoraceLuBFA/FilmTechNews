@@ -62,7 +62,7 @@ SELECT jsonb_build_object(
      a.processing_failure_count AS failures,a.processing_progress_at AS progress_at,
      a.processing_retry_at AS retry_at,a.processing_paused_at AS paused_at,a.processing_pause_reason AS reason,
      CASE WHEN a.processing_state='paused' THEN '核查来源或故障后恢复；已完成的请求结果会复用'
-       WHEN a.processing_state='failed' THEN '检查后台失败记录；未知请求须按原回执规则核查'
+       WHEN a.processing_state='failed' THEN '未知请求优先按冷却时间和成功回执自动恢复；超出条件再核查'
        WHEN a.processing_retry_at>now() THEN '等待重试时间；正常新稿优先处理'
        ELSE '等待当前阶段完成' END AS next_action
    FROM articles a JOIN sources s ON s.id=a.source_id WHERE a.processing_state IN ('new','failed','paused')
@@ -139,8 +139,8 @@ def processing_status(s):
     if not pending and q.get('paused', 0) and not q.get('failed', 0):
         return {'code': 'paused', 'label': '有文章暂缓处理', 'detail': '异常文章已退出主队列，采集和其他新稿继续运行；请查看单篇处理保护。', 'resume_at': None}
     if not pending:
-        return {'code': 'failed' if q.get('failed') else 'idle', 'label': '等待人工处理' if q.get('failed') else '等待新材料',
-                'detail': '{} 篇材料处理失败，需排查后重试。'.format(q['failed']) if q.get('failed') else '当前没有待分析材料，持续按计划检查信源。', 'resume_at': None}
+        return {'code': 'failed' if q.get('failed') else 'idle', 'label': '失败材料待恢复' if q.get('failed') else '等待新材料',
+                'detail': '{} 篇材料处理失败，系统按回执规则尝试自动恢复；超出条件时需排查。'.format(q['failed']) if q.get('failed') else '当前没有待分析材料，持续按计划检查信源。', 'resume_at': None}
     if u.get('day', 0) >= s.get('daily_limit', 1000):
         return {'code': 'daily_limit', 'label': '等待日额度', 'detail': '滚动 24 小时调用额度已满，旧请求移出窗口后逐步恢复。', 'resume_at': u.get('day_release_at')}
     if u.get('hour', 0) >= s.get('hour_limit', 40) or u.get('content_hour', 0) >= s.get('content_hour_limit', 38):

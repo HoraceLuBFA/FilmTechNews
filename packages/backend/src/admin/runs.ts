@@ -81,19 +81,30 @@ export async function runsOverview() {
 /**
  * A receipt whose outcome is unknown is not re-sent by the request that lost it. Releasing it marks it
  * failed, so the next attempt calls again; an article that stopped on it goes straight back to
- * processing (one action, not two). Only an unknown receipt is released, once.
+ * processing (one action, not two). Only an unknown receipt is released.
  */
 const ARTICLE_ANALYSIS_PURPOSES = new Set([
   "analyze_article", "prefilter_article", "score_article", "structure_article", "understand_article", "summarize_article",
 ]);
 
-async function release(id: number, error: string, actor: string, note: string, billed: boolean | null) {
+async function release(id: number, error: string, actor: string, note: string, billed: boolean | null,
+  expected?: { updated_at: string; attempts: number; delayed: boolean }) {
   // Releasing the receipt and handing its stopped article back to processing commit together.
   // An old revision or an unrelated failure must not be reset by this recovery.
   const done = await sql.begin(async (tx) => {
     const [before] = await tx<{ subject: string | null; purpose: string }[]>`
-      UPDATE receipts SET status = 'failed', error = ${error}, updated_at = now() WHERE id = ${id} AND status = 'unknown' RETURNING subject, purpose`;
+      SELECT subject,purpose FROM receipts WHERE id=${id} AND status='unknown'
+        AND (${expected?.updated_at ?? null}::text::timestamptz IS NULL
+          OR (updated_at=${expected?.updated_at ?? null}::text::timestamptz AND attempts=${expected?.attempts ?? null}))
+      FOR UPDATE`;
     if (!before) return null;
+    if (expected?.delayed) {
+      const [article] = await tx`SELECT a.id FROM articles a JOIN receipts r ON r.subject='article:' || a.id || '@' || a.revision
+        WHERE r.id=${id} AND a.processing_state='failed' AND a.processing_error=${`receipt ${id} outcome unknown`}
+        FOR UPDATE OF a`;
+      if (!article) return null;
+    }
+    await tx`UPDATE receipts SET status='failed',error=${error},updated_at=now() WHERE id=${id}`;
     await tx`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown'`;
     const article = ARTICLE_ANALYSIS_PURPOSES.has(before.purpose) ? /^article:([^@]+)@(\d+)$/.exec(before.subject ?? "") : null;
     let requeued = false;
@@ -101,7 +112,10 @@ async function release(id: number, error: string, actor: string, note: string, b
       const [a] = await tx`UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
                             WHERE id = ${article[1]!} AND revision = ${Number(article[2])} AND processing_state = 'failed'
                               AND processing_error = ${`receipt ${id} outcome unknown`} RETURNING id`;
-      if (a) requeued = !!(await queueProcessing(article[1]!, { step: "analyze", db: tx }));
+      if (a) {
+        requeued = !!(await queueProcessing(article[1]!, { step: "analyze", db: tx }));
+        if (!requeued) throw new Error("receipt recovery did not enqueue");
+      }
     }
     return { id, status: "failed", subject: before.subject, purpose: before.purpose, requeued };
   });
@@ -121,22 +135,37 @@ export async function releaseReceipt(id: number, input: { billed: boolean; note:
 
 const AUTO_RELEASE_AFTER_MS = 30 * 60_000;
 const AUTO_RELEASE_NOTE = "自动放行：结果未知超过 30 分钟，未核对是否计费";
+const DELAYED_RELEASE_AFTER_MS = 2 * 60 * 60_000;
+const HEALTHY_CALL_WINDOW_MS = 30 * 60_000;
+const DELAYED_RELEASE_NOTE = "延迟自动放行：第二次未知超过 2 小时，同服务模型已有近期成功请求，未核对是否计费";
 
 /**
  * Every 10 minutes (ops.recover): unknown receipts older than half an hour are released
- * without checking the provider's bill. A lost answer costs at most one repeat: a request released this
- * way once and unknown again stays for the admin (the daily ops digest lists it).
+ * without checking the provider's bill. A current article's second unknown LLM answer gets one final
+ * recovery after two hours, only with recent successful traffic on the same service/model. A third
+ * unknown answer and all other second unknown requests stay for the admin. Settled steps are reused.
  */
 export async function autoReleaseUnknownReceipts(now = Date.now()) {
-  const rows = await sql<{ id: number }[]>`
-    SELECT r.id FROM receipts r
+  const rows = await sql<{ id: number; updated_at: string; attempts: number; delayed: boolean }[]>`
+    SELECT r.id,r.updated_at::text AS updated_at,r.attempts,
+      EXISTS (SELECT 1 FROM receipt_attempts a WHERE a.receipt_id=r.id AND a.error LIKE ${AUTO_RELEASE_NOTE + "%"}) AS delayed
+    FROM receipts r
     WHERE r.status = 'unknown' AND r.updated_at < ${new Date(now - AUTO_RELEASE_AFTER_MS)}
-      AND NOT EXISTS (SELECT 1 FROM receipt_attempts a WHERE a.receipt_id = r.id AND a.error LIKE ${AUTO_RELEASE_NOTE + "%"})
+      AND NOT EXISTS (SELECT 1 FROM receipt_attempts a WHERE a.receipt_id=r.id AND a.error LIKE ${DELAYED_RELEASE_NOTE + "%"})
+      AND (NOT EXISTS (SELECT 1 FROM receipt_attempts a WHERE a.receipt_id=r.id AND a.error LIKE ${AUTO_RELEASE_NOTE + "%"})
+        OR (r.service='llm' AND r.origin='live' AND r.attempts=2 AND r.purpose IN ${sql([...ARTICLE_ANALYSIS_PURPOSES])}
+          AND r.updated_at < ${new Date(now - DELAYED_RELEASE_AFTER_MS)}
+          AND EXISTS (SELECT 1 FROM articles a WHERE r.subject='article:' || a.id || '@' || a.revision
+            AND a.processing_state='failed' AND a.processing_error='receipt ' || r.id || ' outcome unknown')
+          AND EXISTS (SELECT 1 FROM receipt_attempts healthy WHERE healthy.service=r.service AND healthy.model IS NOT DISTINCT FROM r.model
+            AND healthy.origin='live' AND healthy.status='received' AND healthy.started_at>r.updated_at
+            AND healthy.finished_at>${new Date(now - HEALTHY_CALL_WINDOW_MS)})))
     ORDER BY r.id LIMIT 200`;
   let released = 0;
   let requeued = 0;
   for (const r of rows) {
-    const done = await release(r.id, AUTO_RELEASE_NOTE, "ops.recover", "结果未知，自动放行一次", null);
+    const done = await release(r.id, r.delayed ? DELAYED_RELEASE_NOTE : AUTO_RELEASE_NOTE, "ops.recover",
+      r.delayed ? "服务已有成功请求，延迟恢复最后一次" : "结果未知，自动放行一次", null, r);
     if (done) released += 1;
     if (done?.requeued) requeued += 1;
   }

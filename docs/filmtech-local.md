@@ -21,6 +21,6 @@ python3 scripts/local.py stop
 
 `CODEX_BRIDGE_TOKEN` 为本地自行生成的随机访问密码，至少 32 字符，与 `LLM_API_KEY` 相同。`LLM_BASE_URL=http://127.0.0.1:3320/v1`，`LLM_MODEL` 和 `CODEX_BRIDGE_MODEL` 均设为 `gpt-5.6-sol`，推理强度为 `medium`，`LLM_EXTRA_JSON={"reasoning_effort":"medium"}`。桥接程序用 `codex exec`，关闭工具、插件、用户项目指令和记忆，使用临时只读工作目录；只接受 system/user 纯文本消息。模型调用仍经过原项目回执、预算和结果验证。用量记录来自 CLI，费用未知，不标为免费或虚构 API 账单。
 
-`python3 scripts/local.py start` 检测到 CODEX_BRIDGE_TOKEN 时同时运行桥接程序；使用普通 OpenAI-compatible API 时不需要该变量。桥接监听器不得代理到公开网站。配置或网络错误的非致命警告不等于调用失败，验收以 `turn.completed`、最终消息和业务 schema 为准；超时或未知结果进入 unknown 回执，遵循原项目 30 分钟后至多一次恢复策略。
+`python3 scripts/local.py start` 检测到 CODEX_BRIDGE_TOKEN 时同时运行桥接程序；使用普通 OpenAI-compatible API 时不需要该变量。桥接监听器不得代理到公开网站。配置或网络错误的非致命警告不等于调用失败，验收以 `turn.completed`、最终消息和业务 schema 为准；超时或未知结果进入 unknown 回执，30 分钟后可自动恢复一次。当前版本文章的模型请求第二次结果未知时，等待至少两小时，且同服务、同模型在该失败之后已有最近 30 分钟内完成的真实成功请求，才再自动恢复最后一次；第三次未知保留核查，成功阶段继续复用，所有实际请求仍计入预算。
 
 默认保持 `COLLECT_ENABLED=false`、`MODEL_CALLS_ENABLED=false` 和推送阀门关闭。少量真实测试可仅为该命令设置 `MODEL_CALLS_ENABLED=true`，持续采集应在确认试运行后开启。首次回填文章保留原始发布时间，不改成今天新闻。

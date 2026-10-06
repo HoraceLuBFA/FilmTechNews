@@ -4,8 +4,8 @@
 // 2. Before calling, a placeholder row and an attempt row are persisted; budgets count attempts.
 // 3. The raw response is saved before any business write; recovery reuses a received response.
 // 4. A request whose outcome is unknown (timeout after sending, crash mid-flight) is not re-sent by the
-//    caller. ops.recover releases it once after 30 minutes (admin/runs.ts), so a lost answer costs at
-//    most one repeat; after that it waits for the admin.
+//    caller. ops.recover releases it once after 30 minutes (admin/runs.ts). Current article requests
+//    can get one final delayed recovery with evidence of healthy service; all other repeats need review.
 import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { config } from "../config.ts";
@@ -190,7 +190,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   if (claimed.kind === "reuse") return { receiptId: claimed.row.id, response: claimed.row.response, reused: true };
   if (claimed.kind === "busy") throw new ReceiptBusyError(`Receipt ${claimed.row.id} is in flight`);
   if (claimed.kind === "unknown") {
-    throw new ReceiptUnknownError(claimed.row.id, `Receipt ${claimed.row.id} has an unknown outcome; it is released once automatically, then from the admin`);
+    throw new ReceiptUnknownError(claimed.row.id, `Receipt ${claimed.row.id} has an unknown outcome; wait for bounded recovery or admin review`);
   }
 
   const { id: receiptId, attemptId } = claimed;
