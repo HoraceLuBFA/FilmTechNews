@@ -419,3 +419,12 @@ API、worker 已更新，主机监工脚本同步更新，web 容器保持原进
 第一次前端构建发现主页手机入口在客户端引用 server-only 的 queryString，改用已有客户端 hrefWith 后构建通过；DOM 初验环境缺少 HTMLTextAreaElement，补齐测试环境后全部通过，没有把环境失败当成产品成功。部署切换期间首次公网 smoke 的前六页返回 502，稳定健康确认后完整 33 项复测通过，保留原日志。公网 Python HTTPS 检查遇到 SSL EOF，改用 curl 通道保留首轮失败记录，标签专项最终通过；不凭传输异常断言内容读取故障。浏览器扩展、原生窗口连接均超时，内置浏览器不可用，此次没有实际视觉验收。无 JavaScript 时原生 GET 支持 q=#标签降级，但从精选标签页改输普通关键词仍保留该页的 view=selected；已验收的 JavaScript 路径会清除旧模式。
 
 此次只更新 API/web，导航回显补丁最后仅重建 web；API 镜像 7fe2fc924ac2、web 镜像 33b5bebb9c5a。worker 与数据库容器 ID 始终与改前相同，无迁移、无队列调整，没有增添采集、模型、推送、额度或统计任务。API 五处后端／契约及 web 六处前端运行源码哈希与本地相等，镜像内私有配置和 .data 均不存在。源码逐文件基线复核、原文件、原运行镜像和部署日志保存在服务器 .data/tag-search-20261007/；本机 .data/verification/tag-search-20261007/ 保存全部检查、失败日志、最终源码清单与独立回退证据。按该目录 rollback.compose.yml 叠加原两层 Compose，以 --no-deps --no-build --force-recreate 仅切回 api web，可恢复此次标签增强前已上线的主题双入口；先核对后续改动，不覆盖数据库、环境、worker 或历史记录。本次临时预览和独立测试 PostgreSQL 已停止，证据保留。
+
+
+## 2026-10-07 主题与标签功能更新日志
+
+按用户要求，在网站更新日志最前面新增一条“主题全部摘要与标签搜索”，按功能上线时间记为 2026-10-07 17:08，类型为“更新”，同步将 latestVersion 改为 2026-10-07T17:08。三段读者文案说明主题精选与全部摘要双入口、井号标签搜索和最多五个热门候选、卡片标签回显、带数量的阅读范围切换以及主题与精确标签的关联和范围差异。原有三条更新记录完整保留，本次未修改搜索和主题业务逻辑。
+
+本地实际 loadChangelog 与 siteMeta 读取核对通过，生产镜像构建成功。公网日志 API 与本地 JSON 完全一致，更新日志 HTML 中新增标题和三个正文段落、原有三条标题、日期锚点及站点版本标记均核对通过。新旧 ETag 不同，使用旧 ETag 返回 200 及新内容，使用新 ETag 返回 304；最终公网 33 项 smoke 全部通过。首次烟测首页遇到 fetch failed，其余 32 项通过，保留原日志并在服务稳定后完整复查。服务器 Python 3.6 的默认 ASCII 编码和不支持 capture_output 导致两处发布辅助脚本失败，分别改为显式 UTF-8 和 stdout/stderr 管道；健康探测初次误用不存在的 /healthz，随后按本站 /api/health 核对，返回 ok=true、db=ok。以上辅助失败未作为验收成功记录。
+
+此次仅更新 API，镜像为 ac6708fb46dd；web、worker 和数据库的容器 ID 与镜像均保留原值，没有运行迁移、种子或内容维护任务。运行容器内 industry/changelog.json 的 SHA-256 与本地一致，新镜像没有私有环境文件和 .data。证据与原文件位于本机 .data/verification/changelog-tags-20261007/ 及服务器 .data/changelog-tags-20261007/，后者保存原 JSON、容器基线、构建部署日志及 rollback.compose.yml。回退前核对后续修改，恢复原 JSON 后叠加原两层 Compose 和该 rollback 文件，以 --no-deps --no-build --force-recreate 仅切回 API，不覆盖数据库、环境、worker 或历史记录。文案验收依据实际公网 HTML 与 API，不将其表述为原生视觉验收。
