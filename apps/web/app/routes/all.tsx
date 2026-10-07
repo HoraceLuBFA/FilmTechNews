@@ -1,11 +1,11 @@
 import { SITE } from "@aihot/industry/site";
-import { Link, useLoaderData, useNavigation, useSearchParams } from "react-router";
+import { Link, redirect, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/all";
 import type { PoolResponse } from "@aihot/contracts/site";
 import { isCategoryKey, isChannelKey } from "@aihot/contracts/taxonomy";
-import { loadOr404, queryString } from "../lib/api.server";
+import { apiGet, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
-import { CategoryTabs, SearchField } from "../features/feed/Filters";
+import { CategoryTabs, SearchField, hrefWith } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState } from "../components/ui/Page";
@@ -20,13 +20,27 @@ export async function loader({ request }: Route.LoaderArgs) {
   const tag = url.searchParams.get("tag")?.trim() || null;
   const q = url.searchParams.get("q")?.trim().slice(0, 200) || null;
   const tab = url.searchParams.get("tab") === "relevance" ? "relevance" : null;
+  const view = url.searchParams.get("view") === "selected" ? "selected" : "all";
+  const hashQuery = !!q && /^[#＃]/u.test(q);
   // Legacy deep-paging parameters (deep, anchorAt) still open a normal page.
   const page = Math.min(Math.max(Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1, 1), 50);
   const data = await loadOr404<PoolResponse>(
-    `/api/site/pool${queryString({ channel: channel === "all" ? null : channel, category, tag, q, tab, page: page > 1 ? page : null })}`,
+    `/api/site/pool${queryString({ channel: channel === "all" ? null : channel, category, tag, q, tab, view: view === "selected" ? view : null, page: hashQuery ? null : page > 1 ? page : null })}`,
     { signal: request.signal, busyRedirect: "/all/search-busy" },
   );
-  return { data };
+  if (hashQuery || tag !== data.filters.tag) {
+    const canonical = new URLSearchParams(url.searchParams);
+    canonical.delete("tag");
+    if (data.filters.tag) canonical.set("tag", data.filters.tag);
+    if (hashQuery) {
+      for (const key of ["q", "tab", "page", "cursor", "deep", "anchorAt"]) canonical.delete(key);
+    }
+    throw redirect(`/all${canonical.size ? `?${canonical}` : ""}`);
+  }
+  const relatedTopics = data.filters.tag ? (await apiGet<{ topics: Array<{ slug: string; name: string; tags?: string[] }> }>("/api/site/topics", { signal: request.signal })).topics
+    .filter((topic) => topic.tags?.some((entry) => entry.toLocaleLowerCase() === data.filters.tag!.toLocaleLowerCase()))
+    .map(({ slug, name }) => ({ slug, name })) : [];
+  return { data, relatedTopics };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -34,9 +48,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const q = f?.q;
   const page = loaderData?.data.page ?? 1;
   return pageMeta({
-    title: q ? `搜索：${q}` : "全部动态",
-    description: `${SITE.name} 收录的全部动态，可按类别与标签筛选，支持中英文搜索。`,
-    path: listPath("/all", { channel: f && f.channel !== "all" ? f.channel : null, category: f?.category, tag: f?.tag, q, tab: f?.tab === "relevance" ? "relevance" : null, page: page > 1 ? page : null }),
+    title: q ? `搜索：${q}` : f?.tag ? `#${f.tag} · ${f.view === "selected" ? "精选" : "全部摘要"}` : "全部动态",
+    description: f?.tag ? `按 #${f.tag} 标签浏览${SITE.subject}相关文章，可切换精选与全部已公开摘要。` : `${SITE.name} 收录的全部动态，可按类别筛选、输入 #标签检索，或搜索中英文关键词。`,
+    path: listPath("/all", { channel: f && f.channel !== "all" ? f.channel : null, category: f?.category, tag: f?.tag, q, tab: f?.tab === "relevance" ? "relevance" : null, view: f?.view === "selected" ? "selected" : null, page: page > 1 ? page : null }),
     noindex: !!q,
   });
 }
@@ -57,12 +71,15 @@ function pageHref(params: URLSearchParams, page: number) {
 }
 
 export default function AllPage() {
-  const { data } = useLoaderData<typeof loader>();
+  const { data, relatedTopics } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const navigation = useNavigation();
   const f = data.filters;
   const busy = navigation.state === "loading" && navigation.location?.pathname === "/all";
   const keep = { channel: f.channel === "all" ? null : f.channel, category: f.category };
+  const searchValue = f.q ?? (f.tag ? `#${f.tag}` : "");
+  const searchKeep = { ...keep, view: f.view === "selected" ? "selected" : null };
+  const tagBrowsing = !!f.tag && !f.q;
   const searchTabHref = (tab: "time" | "relevance") => {
     const sp = new URLSearchParams(params);
     sp.delete("page");
@@ -80,7 +97,7 @@ export default function AllPage() {
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title ?? "全部动态"}</h1>
         <div className="mb-5 mt-4 flex items-center justify-between gap-4">
           <CategoryTabs base="/all" category={f.category} channel={f.channel} layoutId="all-cat-desk" className="min-w-0" />
-          <SearchField variant="track" defaultValue={f.q ?? ""} keep={keep} />
+          <SearchField variant="track" defaultValue={searchValue} keep={searchKeep} />
         </div>
       </div>
 
@@ -94,11 +111,38 @@ export default function AllPage() {
             </span>
           )}
         </div>
-        <SearchField variant="bar" defaultValue={f.q ?? ""} keep={keep} autoFocus={params.get("search") === "1"} />
+        <SearchField variant="bar" defaultValue={searchValue} keep={searchKeep} autoFocus={params.get("search") === "1"} />
         <div className="-mx-4 mt-3 border-b border-line-soft px-4 pb-3">
           <CategoryTabs base="/all" category={f.category} channel={f.channel} layoutId="all-cat-mobile" size="sm" className="min-w-0" />
         </div>
       </div>
+
+      {tagBrowsing && (
+        <div className="mb-4 mt-4 space-y-2.5 lg:mt-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <PillTabs
+              size="sm"
+              layoutId="tag-view"
+              label="标签文章范围"
+              active={f.view}
+              items={[
+                { key: "selected", label: "精选", count: data.tagCounts?.selected, to: hrefWith("/all", params, { view: "selected" }) },
+                { key: "all", label: "全部摘要", count: data.tagCounts?.total, to: hrefWith("/all", params, { view: null }) },
+              ]}
+            />
+            <span className="text-[12px] text-ink-4">当前 <span className="num">{data.total >= 2000 ? "2000+" : data.total}</span> 条{f.view === "selected" ? "精选" : "摘要"}</span>
+          </div>
+          <p className="text-[12.5px] leading-relaxed text-ink-4">按 #{f.tag} 标签筛选相关文章，全部摘要包含已公开的精选与非精选内容。</p>
+          {relatedTopics.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+              <span className="text-ink-4">相关主题</span>
+              {relatedTopics.map((topic) => (
+                <Link key={topic.slug} to={`/topics/${topic.slug}${f.view === "selected" ? "" : "?view=all"}`} className="chip">{topic.name}</Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {f.q && (
         <div className="mb-3 mt-3 flex flex-wrap items-center justify-between gap-2 lg:mt-0">
@@ -121,14 +165,16 @@ export default function AllPage() {
             <EmptyState
               title="没有找到相关内容"
               action={
-                f.q && f.tab === "time" ? (
+                tagBrowsing && f.view === "selected" && (data.tagCounts?.total ?? 0) > 0 ? (
+                  <Link to={hrefWith("/all", params, { view: null })} className="text-[13px] font-medium text-accent hover:underline">查看全部 {data.tagCounts!.total} 条摘要</Link>
+                ) : f.q && f.tab === "time" ? (
                   <Link to={searchTabHref("relevance")} className="text-[13px] font-medium text-accent hover:underline">
                     试试“全文相关”，连正文一起搜
                   </Link>
                 ) : undefined
               }
             >
-              {f.q ? "换个说法，或者去掉筛选再试。" : "这个筛选下暂时没有内容。"}
+              {f.q ? "换个说法，或者去掉筛选再试。" : tagBrowsing ? f.view === "selected" ? "这个标签下暂时没有精选内容，可以切换到全部摘要。" : "这个标签下暂时没有相关文章，可输入 # 查看常用标签。" : "这个筛选下暂时没有内容。"}
             </EmptyState>
           </div>
         ) : (

@@ -15,12 +15,14 @@ FilmTechNews 汇集影视制作、影像技术及媒体工程领域的公开资�
 | 栏目 | 内容与用途 |
 | --- | --- |
 | [精选](https://filmtech.lumenghe.com/) | 优先阅读具有较高技术价值的报道。 |
-| [全部动态](https://filmtech.lumenghe.com/all) | 按时间浏览已收录资讯，并按技术类别筛选。 |
+| [全部动态](https://filmtech.lumenghe.com/all) | 按时间浏览已收录资讯，按类别或 #标签筛选；标签结果可切换精选与全部摘要。 |
 | [热点](https://filmtech.lumenghe.com/hot) | 按事件查看相关报道，了解不同来源的关注点。 |
 | [日报](https://filmtech.lumenghe.com/daily)、[周报](https://filmtech.lumenghe.com/weekly)、[月报](https://filmtech.lumenghe.com/monthly) | 阅读不同时间跨度的技术进展汇编，并查阅历史期刊。 |
-| [主题精选](https://filmtech.lumenghe.com/topics) | 围绕技术方向、公司与机构持续追踪相关内容。 |
+| [主题](https://filmtech.lumenghe.com/topics) | 按技术方向、内容形态、机构与产品阅读精选文章，或查看全部相关文章摘要及总条目数。 |
 | [信息来源](https://filmtech.lumenghe.com/source-directory) | 查看各来源的特色、主站链接和已收录文章。 |
 | [收藏](https://filmtech.lumenghe.com/starred) | 保存感兴趣的文章，便于后续查阅。 |
+
+搜索框支持关键词与标签两种用法：输入 `#` 显示按全站已公开文章收录数排序的最多五个常用标签，继续输入可缩小候选范围，选择或直接提交 `#标签` 即按标签筛选。点击文章卡片上的标签也会进入同一筛选页，并在搜索框显示当前标签。标签结果可切换精选与全部摘要；主题保留按多个标签汇集内容或按机构主体归类的范围，可从主题页进入具体标签，也可从标签结果进入相关主题。
 
 文章提供分段的中文摘要与原文链接，摘要尽量覆盖核心事实、技术方法、参数、结果和适用限制，长度随原文信息量调整。列表使用简短预览，详情页提供完整摘要；原文有合适配图时，在摘要开头展示一张并标注来源，没有则保留纯文字。网站不公开抓取全文。
 

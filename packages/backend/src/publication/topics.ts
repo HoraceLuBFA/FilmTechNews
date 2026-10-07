@@ -1,10 +1,12 @@
 import type { FeedItemSummary } from "@aihot/contracts/site";
+import { ENTITIES } from "@aihot/industry/taxonomy";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
 import { sql } from "../db.ts";
 import { cached } from "../lib/cache.ts";
-import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
+import { ITEM_COLUMNS, ITEM_FROM, listedCondition, selectedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
+import { displayTags } from "./rules.ts";
 
 export interface TopicRow {
   slug: string;
@@ -17,7 +19,7 @@ export interface TopicRow {
   position: number;
 }
 
-type TopicCount = { slug: string; total: number; recent: number; pages: number; indexable: boolean; latest: Date | null };
+type TopicCount = { slug: string; total: number; summaryTotal: number; recent: number; pages: number; indexable: boolean; latest: Date | null };
 const topicsCache = cached(
   () => sql<TopicRow[]>`SELECT slug, name, grp, entity_id, tags, definition, related, position FROM topics ORDER BY position`,
   { freshMs: 60_000, maxStaleMs: 10 * 60_000 },
@@ -75,27 +77,30 @@ export function topicPageCounts(): Promise<TopicCount[]> {
 }
 
 /**
- * One pass over the selected set (a few thousand rows from its partial index) instead of one
- * scan per topic; a topic counts an item when their tags overlap, as `p.tags && match` does.
+ * One pass over the public, eligible set instead of one scan per topic. Selected counts retain
+ * their indexing meaning; summaryTotal also includes related articles outside the selected set.
  */
 async function queryTopicCounts(): Promise<TopicCount[]> {
   const [topics, items] = await Promise.all([
     sql<Array<Pick<TopicRow, "slug" | "entity_id" | "tags">>>`SELECT slug, entity_id, tags FROM topics ORDER BY position`,
-    sql<{ tags: string[]; timeline_at: Date }[]>`SELECT p.tags, p.timeline_at FROM publications p WHERE ${selectedCondition(new Date())} AND p.eligible`,
+    sql<{ tags: string[]; timeline_at: Date; selected: boolean }[]>`SELECT p.tags, p.timeline_at, p.selected FROM publications p WHERE ${listedCondition(new Date())} AND p.eligible`,
   ]);
   const recentFrom = Date.now() - 30 * 86400_000;
   return topics.map((t) => {
     const match = new Set(topicMatchTags(t));
     let total = 0;
+    let summaryTotal = 0;
     let recent = 0;
     let latest: Date | null = null;
     for (const it of items) {
       if (!it.tags.some((tag) => match.has(tag))) continue;
+      summaryTotal += 1;
+      if (!it.selected) continue;
       total += 1;
       if (it.timeline_at.getTime() > recentFrom) recent += 1;
       if (!latest || it.timeline_at > latest) latest = it.timeline_at;
     }
-    return { slug: t.slug, total, recent, latest, pages: Math.max(1, Math.ceil(total / TOPIC_PAGE_SIZE)), indexable: total >= 50 || (total >= 20 && recent > 0) };
+    return { slug: t.slug, total, summaryTotal, recent, latest, pages: Math.max(1, Math.ceil(total / TOPIC_PAGE_SIZE)), indexable: total >= 50 || (total >= 20 && recent > 0) };
   });
 }
 
@@ -105,6 +110,8 @@ export interface TopicSummary {
   group: "company" | "field" | "genre";
   definition: string;
   total: number;
+  tags: string[];
+  summaryTotal: number;
   recent: number;
   indexable: boolean;
   latestAt: string | null;
@@ -115,7 +122,9 @@ export async function listTopicSummaries(): Promise<TopicSummary[]> {
   const counts = new Map((await topicPageCounts()).map((c) => [c.slug, c]));
   return topics.map((t) => {
     const c = counts.get(t.slug);
-    return { slug: t.slug, name: t.name, group: t.grp, definition: t.definition, total: c?.total ?? 0, recent: c?.recent ?? 0, indexable: c?.indexable ?? false, latestAt: c?.latest?.toISOString() ?? null };
+    const entity = t.entity_id ? ENTITIES[t.entity_id] : null;
+    const tags = t.grp === "company" ? [entity?.displayTag ?? entity?.name ?? t.name] : [...new Set(displayTags(t.tags))];
+    return { slug: t.slug, name: t.name, group: t.grp, definition: t.definition, tags, total: c?.total ?? 0, summaryTotal: c?.summaryTotal ?? 0, recent: c?.recent ?? 0, indexable: c?.indexable ?? false, latestAt: c?.latest?.toISOString() ?? null };
   });
 }
 
@@ -124,25 +133,28 @@ export interface TopicPage {
   items: FeedItemSummary[];
   page: number;
   pageCount: number;
+  view: TopicView;
 }
 
-export async function loadTopicPage(slug: string, page: number, now = new Date()): Promise<TopicPage | null> {
+export type TopicView = "selected" | "all";
+
+export async function loadTopicPage(slug: string, page: number, now = new Date(), view: TopicView = "selected"): Promise<TopicPage | null> {
   const row = await loadTopic(slug);
-  if (!row || page < 1) return null;
+  if (!row || !Number.isInteger(page) || page < 1) return null;
   const topics = await listTopicSummaries();
   const topic = topics.find((t) => t.slug === slug);
   if (!topic) return null;
-  const pageCount = Math.max(1, Math.ceil(topic.total / TOPIC_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil((view === "all" ? topic.summaryTotal : topic.total) / TOPIC_PAGE_SIZE));
   if (page < 1 || page > pageCount) return null;
-  // Page ids from the selected set first, then the joins for those rows only.
+  // Page ids from the requested public set first, then the joins for those rows only.
   const rows = await sql<ItemRow[]>`
     WITH page AS (
       SELECT p.article_id FROM publications p
-      WHERE ${selectedCondition(now)} AND p.tags && ${topicMatchTags(row)}::text[]
+      WHERE ${view === "all" ? listedCondition(now) : selectedCondition(now)} AND p.eligible AND p.tags && ${topicMatchTags(row)}::text[]
       ORDER BY p.timeline_at DESC, p.article_id DESC
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${(page - 1) * TOPIC_PAGE_SIZE})
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
     ORDER BY p.timeline_at DESC, p.article_id DESC`;
   const related = row.related.map((r) => topics.find((t) => t.slug === r)).filter((t): t is TopicSummary => !!t).map((t) => ({ slug: t.slug, name: t.name }));
-  return { topic: { ...topic, related }, items: rows.map(toFeedItemSummary), page, pageCount };
+  return { topic: { ...topic, related }, items: rows.map(toFeedItemSummary), page, pageCount, view };
 }

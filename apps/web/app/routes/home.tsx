@@ -8,7 +8,7 @@ import { listPath, organizationLd, pageMeta } from "../lib/seo";
 import { Wordmark } from "../components/Logo";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
-import { CategoryTabs, SearchField, SearchIconLink } from "../features/feed/Filters";
+import { CategoryTabs, SearchField, SearchIconLink, hrefWith } from "../features/feed/Filters";
 import { beijingDate, beijingWeekday } from "../lib/format";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -60,7 +60,7 @@ export default function Home() {
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
         <div className="mb-5 mt-4 flex items-center justify-between gap-4">
           <CategoryTabs base="/" category={filters.category} channel={filters.channel} layoutId="home-cat-desk" className="min-w-0" />
-          <SearchField variant="track" keep={{ category: filters.category }} />
+          <SearchField variant="track" defaultValue={filters.tag ? `#${filters.tag}` : ""} keep={{ channel: filters.channel === "all" ? null : filters.channel, category: filters.category, view: filters.tag ? "selected" : null }} />
         </div>
       </div>
 
@@ -69,7 +69,7 @@ export default function Home() {
       <h2 className="mt-6 text-[20px] font-bold text-ink lg:hidden">{filters.tag ? title : "最新精选"}</h2>
       <div className="-mx-4 mt-3 flex items-center gap-2 pl-4 pr-2 lg:hidden">
         <CategoryTabs base="/" category={filters.category} channel={filters.channel} layoutId="home-cat-mobile" size="sm" className="min-w-0 flex-1" />
-        <SearchIconLink />
+        <SearchIconLink to={hrefWith("/all", new URLSearchParams(), { search: "1", tag: filters.tag, channel: filters.channel === "all" ? null : filters.channel, category: filters.category, view: filters.tag ? "selected" : null })} />
       </div>
 
       <Timeline initial={data} filters={data.filters} />

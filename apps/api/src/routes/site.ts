@@ -20,6 +20,7 @@ import { loadSiteStats } from "@aihot/backend/site/stats";
 import { itemAvailability } from "@aihot/backend/publication/availability";
 import { listTopicSummaries, loadTopicPage } from "@aihot/backend/publication/topics";
 import { listSourceCounts, loadSourcePage } from "@aihot/backend/publication/sources";
+import { listTagSummaries, normalizePublicTag } from "@aihot/backend/publication/tags";
 import { registerFeedback } from "./feedback.ts";
 
 import { loadHot, loadStoryDetail, resolveStory } from "@aihot/backend/publication/stories";
@@ -73,7 +74,7 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
   if (!isChannelKey(channel)) throw new BadRequest("invalid channel");
   const category = q.category ?? null;
   if (category !== null && !isCategoryKey(category)) throw new BadRequest("invalid category");
-  const tag = q.tag?.trim() ? q.tag.trim().slice(0, 60) : null;
+  const tag = await normalizePublicTag(q.tag);
   const topic = q.topic?.trim() || null;
   let topicTags: string[] | null = null;
   if (topic) {
@@ -138,11 +139,14 @@ export function registerSite(app: FastifyInstance) {
 
   app.get("/api/site/pool", siteHandler(async (req, reply) => {
     const q = looseQuery(req);
-    const filters = await parseFilters(q);
+    const hashTag = /^[#＃]/.test(q.q?.trim() ?? "");
+    const filters = await parseFilters(hashTag ? { ...q, tag: q.q! } : q);
     const page = Math.min(Math.max(Number(q.page) || 1, 1), 50);
-    const search = q.q?.trim() ? q.q.trim().slice(0, 200) : null;
+    const search = !hashTag && q.q?.trim() ? q.q.trim().slice(0, 200) : null;
+    const view = q.view ?? "all";
+    if (view !== "all" && view !== "selected") throw new BadRequest("invalid pool view");
     const tab = q.tab === "relevance" ? "relevance" : "time";
-    const data = await loadPool({ ...filters, q: search, tab, page });
+    const data = await loadPool({ ...filters, q: search, tab, page, view });
     const { generatedAt: _, ...content } = data;
     return sendJsonWithEtag(req, reply, data, { etagPrefix: "pool", cacheControl: "public, max-age=60, s-maxage=60", etagOf: content });
   }));
@@ -214,10 +218,17 @@ export function registerSite(app: FastifyInstance) {
     return sendJsonWithEtag(req, reply, { topics: await listTopicSummaries() }, { etagPrefix: "topics", cacheControl: "public, max-age=300, s-maxage=300" });
   }));
 
+  app.get("/api/site/tags", siteHandler(async (req, reply) => {
+    return sendJsonWithEtag(req, reply, { tags: await listTagSummaries() }, { etagPrefix: "tags", cacheControl: "public, max-age=60, s-maxage=60" });
+  }));
+
   app.get("/api/site/topics/:slug", siteHandler(async (req, reply) => {
     const slug = (req.params as { slug: string }).slug;
-    const page = Number(looseQuery(req).page ?? 1);
-    const data = Number.isInteger(page) ? await loadTopicPage(slug, page) : null;
+    const q = looseQuery(req);
+    const page = Number(q.page ?? 1);
+    const view = q.view ?? "selected";
+    if (view !== "selected" && view !== "all") throw new BadRequest("invalid topic view");
+    const data = Number.isInteger(page) ? await loadTopicPage(slug, page, new Date(), view) : null;
     if (!data) return sendProblem(req, reply, { status: 404, code: "not_found", detail: "topic page not found", cacheControl: "public, max-age=60" });
     return sendJsonWithEtag(req, reply, data, { etagPrefix: "topic", cacheControl: "public, max-age=60, s-maxage=60" });
   }));

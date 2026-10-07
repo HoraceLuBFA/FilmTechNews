@@ -121,14 +121,22 @@ export interface TimelineResponse {
 }
 
 export interface PoolResponse {
-  filters: TimelineFilters & { q: string | null; tab: "time" | "relevance" };
+  filters: TimelineFilters & { q: string | null; tab: "time" | "relevance"; view: "all" | "selected" };
   items: FeedItemSummary[];
   page: number;
   pageCount: number;
   total: number;
+  /** Entire tag scope under the structural filters, independent of q, view and pagination caps. */
+  tagCounts: { total: number; selected: number } | null;
   todayCount: number;
   freshness: string;
   generatedAt: string;
+}
+
+export interface TagSummary {
+  tag: string;
+  total: number;
+  selectedTotal: number;
 }
 
 export interface OutlineEntry {

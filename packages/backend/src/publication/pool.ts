@@ -110,6 +110,7 @@ export interface PoolQuery extends TimelineFilters {
   page?: number;
   topicTags?: string[] | null;
   now?: Date;
+  view?: "all" | "selected";
 }
 
 export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
@@ -119,11 +120,13 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
   const q = query.q?.trim() || null;
   const tab = q && query.tab === "relevance" ? "relevance" : "time";
   const terms = q ? searchTerms(q) : [];
-  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)} ${query.sourceId ? sql`AND p.source_id = ${query.sourceId}` : sql``}`;
+  const view = query.view ?? "all";
+  const scopeFilters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)} ${query.sourceId ? sql`AND p.source_id = ${query.sourceId}` : sql``}`;
+  const filters = sql`${scopeFilters} ${view === "selected" ? sql`AND p.selected` : sql``}`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
   const cap = maxPages * POOL_PAGE_SIZE;
   // A fixed clock (tests, replays) never shares cached totals.
-  const filterKey = query.now ? null : JSON.stringify([query.channel, query.category, query.tag, query.topicTags ?? null, query.sourceId ?? null, maxPages]);
+  const filterKey = query.now ? null : JSON.stringify([query.channel, query.category, query.tag, query.topicTags ?? null, query.sourceId ?? null, maxPages, view]);
 
   // Searches go through pool_search (eligible items only): trigram indexes for longer terms, a small
   // table to scan for one- and two-character ones.
@@ -193,17 +196,24 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
 
   const { rows, total } = q ? await withSearchCapacity(run) : await run(sql);
   const today = beijingDate(now);
-  const meta = one(await sql<{ today_count: number; updated_at: Date | null }[]>`
+  const [metaRows, tagCountRows] = await Promise.all([
+    sql<{ today_count: number; updated_at: Date | null }[]>`
     SELECT (SELECT count(*) FROM publications p
       WHERE ${listedCondition(now)} AND p.eligible AND p.timeline_at >= ${beijingMidnight(today)} ${filters}) AS today_count,
-      (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`);
+      (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`,
+    query.tag ? sql<{ total: number; selected: number }[]>`
+      SELECT count(*)::int AS total, (count(*) FILTER (WHERE p.selected))::int AS selected
+      FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${scopeFilters}` : Promise.resolve(null),
+  ]);
+  const meta = one(metaRows);
 
   return {
-    filters: { channel: query.channel, category: query.category, tag: query.tag, topic: query.topic ?? null, q, tab },
+    filters: { channel: query.channel, category: query.category, tag: query.tag, topic: query.topic ?? null, q, tab, view },
     items: rows.map(toFeedItemSummary),
     page,
     pageCount: Math.min(maxPages, Math.max(1, Math.ceil(total / POOL_PAGE_SIZE))),
     total,
+    tagCounts: tagCountRows ? one(tagCountRows) : null,
     todayCount: Number(meta.today_count),
     freshness: (meta.updated_at ?? now).toISOString(),
     generatedAt: now.toISOString(),
