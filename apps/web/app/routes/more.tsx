@@ -6,7 +6,7 @@ import type { loader as rootLoader } from "../root";
 import { useChangelogDot } from "../components/shell/Sidebar";
 import { pageMeta } from "../lib/seo";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
-import { IconBookmark, IconChart, IconChevronRight, IconFlame, IconGlobe, IconGrid, IconHeart, IconHistory, IconMessage, IconMoon, IconPlug } from "../components/icons";
+import { IconArrowUpRight, IconBookmark, IconChart, IconChevronRight, IconFlame, IconGlobe, IconGrid, IconHeart, IconHistory, IconMessage, IconMoon, IconPlug } from "../components/icons";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
@@ -86,12 +86,16 @@ export default function MorePage() {
           </Group>
         ))}
       </div>
-      <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[12px] text-ink-4">
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[12px] text-ink-4">
+        <a href={SITE.homepage.url} className="inline-flex min-h-8 items-center gap-1 transition-colors hover:text-ink-2">
+          {SITE.homepage.label} <IconArrowUpRight size={12} />
+        </a>
         <Link to="/terms" className="hover:text-ink-2">使用规则</Link>
         <Link to="/privacy" className="hover:text-ink-2">隐私说明</Link>
         <a href="/feed.xml" className="hover:text-ink-2">RSS</a>
         {SITE.icp && <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-ink-2">{SITE.icp}</a>}
       </div>
+      <p className="mt-2 text-center text-[11px] text-ink-4">{SITE.footerNote}</p>
     </div>
   );
 }

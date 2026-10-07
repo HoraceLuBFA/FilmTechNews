@@ -27,8 +27,10 @@ export const SITE = {
   mcpPrefix: "filmtechnews",
   /** 对外联系邮箱（选填）：使用规则、llms.txt、响应头里会写。 */
   contactEmail: null as string | null,
-  /** 页脚的一行小字（选填）。 */
-  footerNote: "FilmTechNews · 影视制作与影像工程资讯",
+  /** 页脚的版权署名。 */
+  footerNote: "© Menghe (Horace) Lu",
+  /** 维护者的个人主页，显示在辅助导航中。 */
+  homepage: { url: "https://www.lumenghe.com/", label: "鲁梦河的个人主页" },
   /** 中国大陆网站的 ICP 备案号（选填），填了就显示在页脚并链接到工信部备案系统。 */
   icp: null as string | null,
   /** 结构化数据里的网站运营者（搜索引擎用）。 */

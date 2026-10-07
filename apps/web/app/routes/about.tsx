@@ -8,7 +8,7 @@ import { ABOUT, SITE, withSubject } from "@aihot/industry/site";
 import { organizationLd, pageMeta } from "../lib/seo";
 import { Kicker } from "../components/ui/Kicker";
 import { buttonClass } from "../components/ui/Controls";
-import { IconArrowRight } from "../components/icons";
+import { IconArrowRight, IconArrowUpRight } from "../components/icons";
 import { SignalRiver, type RiverSource } from "../features/about/SignalRiver";
 
 /** Shared caches may keep this page for five minutes. */
@@ -296,7 +296,10 @@ export default function AboutPage() {
             </span>
           )}
         </div>
-        <nav className="flex gap-5" aria-label="规则与隐私">
+        <nav className="flex flex-wrap items-center gap-x-5 gap-y-1" aria-label="站点链接">
+          <a href={SITE.homepage.url} className="inline-flex min-h-8 items-center gap-1 transition-colors hover:text-accent">
+            {SITE.homepage.label} <IconArrowUpRight size={12} />
+          </a>
           <Link to="/terms" className="transition-colors hover:text-accent">
             使用规则
           </Link>

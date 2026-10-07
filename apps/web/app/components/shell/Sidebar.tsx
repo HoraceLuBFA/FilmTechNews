@@ -2,6 +2,7 @@ import { SITE } from "@aihot/industry/site";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Wordmark } from "../Logo";
+import { IconArrowUpRight } from "../icons";
 import { useChangelogSeen } from "../../lib/local-state";
 import { SIDEBAR, tabIsActive, type NavItem } from "./nav";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -57,8 +58,14 @@ export function Sidebar({ changelogVersion }: { changelogVersion: string | null 
           </div>
         ))}
       </nav>
-      <div className="mt-2 space-y-2.5 px-1 pt-1">
+      <div className="mt-2 shrink-0 space-y-2.5 px-1 pt-1">
         <ThemeSwitch className="mx-1" />
+        <div className="px-2 text-ink-4">
+          <a href={SITE.homepage.url} className="inline-flex min-h-8 items-center gap-1 text-[12px] transition-colors hover:text-ink-2">
+            {SITE.homepage.label} <IconArrowUpRight size={12} />
+          </a>
+          <p className="text-[10px] leading-5">{SITE.footerNote}</p>
+        </div>
         {SITE.icp && (
           <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="block px-2 text-[10px] text-ink-4 hover:text-ink-3">
             {SITE.icp}
